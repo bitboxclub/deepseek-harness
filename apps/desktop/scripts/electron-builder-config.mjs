@@ -150,8 +150,14 @@ export function createElectronBuilderConfig(
     extraResources: [
       { from: buildPaths.runtime, to: 'runtime' },
       { from: fileURLToPath(new URL('../resources/icon-windows.png', import.meta.url)), to: 'icon.png' },
-      // Windows tray bitmaps; macOS keeps the Dock and ships no menu bar icon.
+      // Tray bitmaps. Windows takes the multi-size ICO; Linux panels take a PNG, and
+      // `nativeImage` picks the sibling `tray@2x.png` on HiDPI displays by itself, so
+      // both files must sit next to each other in resources/. macOS keeps the Dock.
       ...(packagesWindows ? [{ from: fileURLToPath(new URL('../resources/tray-windows.ico', import.meta.url)), to: 'tray.ico' }] : []),
+      ...(packagesLinux ? [
+        { from: fileURLToPath(new URL('../resources/tray.png', import.meta.url)), to: 'tray.png' },
+        { from: fileURLToPath(new URL('../resources/tray@2x.png', import.meta.url)), to: 'tray@2x.png' },
+      ] : []),
     ],
     mac: {
       icon: fileURLToPath(new URL('../resources/icon-macos.png', import.meta.url)),
@@ -237,12 +243,26 @@ export function createElectronBuilderConfig(
       target: ['nsis'],
     },
     linux: {
-      icon: fileURLToPath(new URL('../resources/icon.png', import.meta.url)),
+      // 必须是【定尺寸图标目录】，不能是单张 PNG。
+      // electron-builder 把每个图标装到 /usr/share/icons/hicolor/<尺寸>x<尺寸>/apps/，
+      // 目录名取自图标的像素尺寸（FpmTarget.js 的 sizeName）。单张 icon.png 是
+      // 1104x1104，只会装进 hicolor/1104x1104/apps/ —— 而桌面环境查找图标时只认
+      // hicolor index.theme 的 Directories= 清单（本机为 16/22/24/32/36/48/64/72/
+      // 96/128/192/256/512，**不含 1104**），于是图标永远查不到，启动器退回通用图标。
+      // 目录内的 <N>x<N>.png 由 build/tools/render-app-icons.mjs 从 icon.svg 渲染，
+      // 小尺寸直接栅格化（比缩小 1104px 位图锐利）。改矢量源后重跑该脚本即可。
+      icon: fileURLToPath(new URL('../resources/icons', import.meta.url)),
       // 必须显式指定可执行名。Linux 下 electron-builder 的默认值是
       // appInfo.sanitizedName.toLowerCase()，即包名 '@deepseek-ai/dsh-desktop' 经
       // sanitize 后的 '@deepseek-aidsh-desktop'——既不适合做命令名，也与
       // smoke-packaged-runtime.ts 的自检路径不一致。这里统一为 deepseek-harness。
       executableName: 'deepseek-harness',
+      // StartupWMClass 与 Electron 的 app_id（取自 package.json 的 desktopName）必须一致，
+      // 桌面环境才能把运行中的窗口关联到本 .desktop 条目——任务栏因此显示应用图标
+      // 而不是通用图标。不设 desktopName 时 electron-builder 回落到 productName
+      // （'DeepSeek Harness'，含空格），与 Electron 实际使用的 app_id 不匹配。
+      // syncDesktopName 让 .desktop 文件名也从 desktopName 推导，三者保持一致。
+      syncDesktopName: true,
       // 麒麟/统信等国产桌面均基于 Debian 系，deb 为最通用交付形态。
       target: ['deb'],
       maintainer: 'DeepSeek Harness local build',

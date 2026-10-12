@@ -1188,6 +1188,25 @@ describe('desktop main startup', () => {
     expect(window.show).toHaveBeenCalledOnce()
   })
 
+  it('keeps a Linux status item so a hidden window stays reachable and closes without a prompt', async () => {
+    vi.stubGlobal('process', { ...process, platform: 'linux', arch: 'arm64', resourcesPath: 'desktop-test-resources' })
+    await readyWorkspace()
+    const window = harness.windows[0]!
+    // The panel item is the only always-present handle on Linux, so it must exist from startup.
+    expect(harness.trays).toHaveLength(1)
+    expect(harness.trays[0]!.image).toEqual({ path: join('desktop-test-resources', 'tray.png') })
+    window.show.mockClear()
+    window.close()
+    // Linux hides without the Windows first-hide confirmation; the Host keeps running.
+    expect(window.isDestroyed()).toBe(false)
+    expect(window.hide).toHaveBeenCalledOnce()
+    expect(harness.backgroundNotice.close).not.toHaveBeenCalled()
+    expect(harness.backgroundNotice.markerPath).toBeUndefined()
+    harness.trays[0]!.emit('click')
+    expect(window.show).toHaveBeenCalledOnce()
+    expect(window.focus).toHaveBeenCalled()
+  })
+
   it('skips the confirmation during a macOS shutdown but asks again once a cancelled shutdown returns focus', async () => {
     vi.stubGlobal('process', { ...process, platform: 'darwin', arch: 'arm64', resourcesPath: 'desktop-test-resources' })
     const host = await readyWorkspace()

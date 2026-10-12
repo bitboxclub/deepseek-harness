@@ -981,9 +981,14 @@ async function main(): Promise<void> {
     tray?.relabel()
   }
   refreshApplicationMenu()
-  const trayIconPath = development ? join(app.getAppPath(), 'resources', 'tray-windows.ico') : join(process.resourcesPath, 'tray.ico')
-  if (process.platform === 'win32') {
-    // The tray is the way back to a hidden window; without it, relaunching the application still focuses it.
+  // Windows ships a multi-size ICO; Linux panels take a PNG that nativeImage picks
+  // up together with its @2x variant. macOS keeps the Dock and ships no menu bar icon.
+  const trayIconPath = development
+    ? join(app.getAppPath(), 'resources', process.platform === 'win32' ? 'tray-windows.ico' : 'tray.png')
+    : join(process.resourcesPath, process.platform === 'win32' ? 'tray.ico' : 'tray.png')
+  if (process.platform === 'win32' || process.platform === 'linux') {
+    // The tray is the way back to a hidden window; without it, relaunching the application
+    // still focuses it on Windows, but a Linux session has no other always-present handle.
     try {
       tray = new DesktopTray({ iconPath: trayIconPath, locale: currentDesktopLocale,
         open: () => { focusPrimaryWindow() }, quit: () => { app.quit() } })
