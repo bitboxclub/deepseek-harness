@@ -39,6 +39,21 @@ export type RemoteStreamFailureMapper = (error: unknown) => RemoteStreamFailure
 
 const MAX_MISSED_HEARTBEATS = 2
 
+/**
+ * Payload carried by every liveness Ping, deliberately non-empty.
+ *
+ * A payload-less Ping is encoded by `ws` as a two-part frame
+ * (`[2-byte header, EMPTY_BUFFER]`) and sent with `cork()`/`uncork()`, which
+ * makes the write path a two-element `writev` whose second iovec has length 0.
+ * Electron's sandboxed V8 (observed on 44.0.0 / Node 24.18.1 / V8 15.2) hands
+ * out a backing store for a zero-length ArrayBuffer that the kernel rejects as
+ * EFAULT (`write EFAULT`), so *every* heartbeat tick destroyed the whole mux
+ * socket and every client reconnected on the two-second cadence. One byte keeps
+ * both iovecs non-empty while remaining a protocol-legal Ping payload
+ * (RFC 6455 §5.5.2); the peer echoes it in its Pong, which this server ignores.
+ */
+const HEARTBEAT_PING_PAYLOAD = Buffer.from([0])
+
 /** Own the no-server WebSocket acceptor and every active logical stream. */
 export class RemoteStreamMuxServer {
   private readonly server = new WebSocketServer({ noServer: true })
@@ -117,7 +132,7 @@ export class RemoteStreamMuxServer {
           continue
         }
         this.missedHeartbeats.set(socket, missed + 1)
-        socket.ping()
+        socket.ping(HEARTBEAT_PING_PAYLOAD)
       }
     }, this.heartbeatIntervalMs)
     this.heartbeatTimer.unref()

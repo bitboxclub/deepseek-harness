@@ -21,12 +21,24 @@ const FILE_SETTINGS = ['DSH_DESKTOP_WINDOWS_CER_FILE', 'DSH_DESKTOP_WINDOWS_SIGN
 
 /**
  * Read the target's required UTF-8 dotenv file; release settings never fall back to ambient values.
- * @param {'win32' | 'darwin'} platform Target platform.
+ * @param {'win32' | 'darwin' | 'linux'} platform Target platform.
  * @param {NodeJS.ProcessEnv} environment Parent environment, retained only for unrelated build tools.
  * @param {string} appRoot Desktop application directory; relative credential paths resolve here.
  * @returns {NodeJS.ProcessEnv} Isolated environment with file-owned release settings.
  */
 export function loadDesktopPackageEnvironment(platform, environment = process.env, appRoot = APP_ROOT) {
+  // Linux 为本地社区构建目标：无签名、无自动更新，直接沿用调用者环境并提供最小必需设置。
+  // DSH_DESKTOP_NPM_REGISTRY 供 prepare-dsh 在打包期执行 `pnpm install --prod` 使用：
+  // 国内环境访问 registry.npmjs.org 极慢/易断，故默认指向 npmmirror 镜像。
+  if (platform === 'linux') {
+    const base = Object.fromEntries(Object.entries(environment)
+      .filter(([name]) => !AMBIENT_RELEASE_SETTING.test(name)))
+    return {
+      ...base,
+      DSH_DESKTOP_APP_ID: base.DSH_DESKTOP_APP_ID ?? 'ai.deepseek.harness',
+      DSH_DESKTOP_NPM_REGISTRY: base.DSH_DESKTOP_NPM_REGISTRY ?? 'https://registry.npmmirror.com',
+    }
+  }
   const path = join(appRoot, platform === 'win32' ? '.env.windows' : '.env.macos')
   let contents
   try {
@@ -72,13 +84,15 @@ function requireReadableFile(environment, name) {
 /**
  * Validate release configuration before preparation without invoking a token or Apple's services.
  * @param {NodeJS.ProcessEnv} environment File-owned release settings.
- * @param {{ platform: 'win32' | 'darwin', arch: string }} target Selected release target.
+ * @param {{ platform: 'win32' | 'darwin' | 'linux', arch: string }} target Selected release target.
  * @param {{ unsigned?: boolean, prepareOnly?: boolean }} options Explicit packaging mode.
  * @returns {void}
  */
 export function validateDesktopPackageEnvironment(environment, target, options = {}) {
   resolveDesktopAppId(environment)
   resolveNpmRegistry(environment)
+  // Linux 社区构建无策略服务、无签名、无自动更新。
+  if (target.platform === 'linux') return
   resolveDesktopPolicyEnvironment(environment)
   if (target.platform === 'darwin') resolveMacOSPackageSettings(environment)
   else resolveWindowsPackageSettings(environment)

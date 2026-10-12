@@ -11,4 +11,12 @@ while [ -L "$launcher" ]; do
   esac
 done
 resources=$(CDPATH= cd -- "$(dirname -- "$launcher")/../../.." && pwd -P)
-ELECTRON_RUN_AS_NODE=1 exec "$resources/../MacOS/DeepSeek Harness" --expose-internals "$resources/app.asar/dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js" "$@"
+# 本脚本随 runtime/ 一起安装，其上一级即 app.asar 所在目录，macOS 与 Linux 一致：
+#   macOS: <App>.app/Contents/Resources
+#   Linux: <dir>-unpacked/resources
+# 可执行文件位置两者不同，按存在性选择，macOS 行为保持不变：
+#   macOS: <App>.app/Contents/MacOS/DeepSeek Harness
+#   Linux: <dir>-unpacked/deepseek-harness
+executable="$resources/../MacOS/DeepSeek Harness"
+[ -x "$executable" ] || executable="$resources/../deepseek-harness"
+ELECTRON_RUN_AS_NODE=1 exec "$executable" --expose-internals "$resources/app.asar/dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js" "$@"

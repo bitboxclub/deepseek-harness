@@ -17,15 +17,17 @@ import { validateDesktopBuildVersion } from './desktop-build-version.mjs'
 
 const APP_ROOT = resolve(import.meta.dirname, '..')
 const REPOSITORY_ROOT = resolve(APP_ROOT, '..', '..')
-const TARGETS = {
-  'mac-arm64': { platform: 'darwin', arch: 'arm64', os: 'mac' },
-  'mac-x64': { platform: 'darwin', arch: 'x64', os: 'mac' },
-  'win-x64': { platform: 'win32', arch: 'x64', os: 'win' },
-} as const satisfies Record<DesktopPackageTargetName, {
+// Only targets that publish an update feed can be uploaded; Linux targets are absent on
+// purpose, so indexing with a Linux name yields undefined and the guard below rejects it.
+const TARGETS: Partial<Record<DesktopPackageTargetName, {
   readonly platform: NodeJS.Platform
   readonly arch: string
   readonly os: string
-}>
+}>> = {
+  'mac-arm64': { platform: 'darwin', arch: 'arm64', os: 'mac' },
+  'mac-x64': { platform: 'darwin', arch: 'x64', os: 'mac' },
+  'win-x64': { platform: 'win32', arch: 'x64', os: 'win' },
+}
 
 /** One local file and its final object metadata. */
 export interface DesktopUploadArtifact {
