@@ -99,6 +99,15 @@ describe('installer preparation preserves application dependencies', () => {
       tray.set(resource.to, [png.readUInt32BE(16), png.readUInt32BE(20)])
     }
     expect([...tray]).toEqual([['tray.png', [22, 22]], ['tray@2x.png', [44, 44]]])
+    // The deb knows nothing about PATH: without a maintainer script linking
+    // /usr/bin/dsh to the packaged runtime/cli/bin/dsh the CLI stays unreachable
+    // from a terminal. after-install must add it, after-remove must drop it again.
+    // The keys live under DebOptions — the linux node's schema rejects them.
+    const installScript = readFileSync(config.deb.afterInstall, 'utf8')
+    const removeScript = readFileSync(config.deb.afterRemove, 'utf8')
+expect(installScript).toContain("ln -sf '/opt/\${sanitizedProductName}/resources/runtime/cli/bin/dsh' '/usr/bin/dsh'")
+    expect(installScript).toContain("'/usr/bin/\${executable}'")
+    expect(removeScript).toContain("rm -f '/usr/bin/dsh'")
   })
 
   it('names unsigned Windows artifacts so they cannot pass for release builds', async () => {

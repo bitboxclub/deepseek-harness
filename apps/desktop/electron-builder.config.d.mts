@@ -33,6 +33,11 @@ export interface DesktopElectronBuilderConfig {
     readonly syncDesktopName: boolean
     readonly target: readonly ['deb']
   }
+  readonly deb: {
+    /** Macro-rendered maintainer scripts; base is EB's default, plus the /usr/bin/dsh symlink. */
+    readonly afterInstall: string
+    readonly afterRemove: string
+  }
   readonly mac: {
     readonly extendInfo: { readonly NSMicrophoneUsageDescription: string }
     readonly entitlements: string

@@ -21,6 +21,7 @@ import {
   shell,
   type IpcMainInvokeEvent,
   type MenuItemConstructorOptions,
+  type NativeImage,
 } from 'electron'
 import { resolveDesktopPaths } from './paths.ts'
 import { DesktopProjectManager } from './project-manager.ts'
@@ -203,13 +204,35 @@ function platformLoginUrl(authorizeUrl: string): string {
   return url.href
 }
 
+/**
+ * Linux 窗口图标路径：打包后是 resources/icon.png，开发态是源码树里就位的
+ * icon-linux.png。
+ *
+ * 麒麟/UKUI 的窗口管理器从窗口本身取 `_NET_WM_ICON`；只有面板按 `StartupWMClass`
+ * 关联到 `.desktop` 条目时才会改用主题图标。显式设置窗口图标，可让标题栏、Alt-Tab
+ * 与面板三处都不退化成通用图标。
+ *
+ * @returns 图标文件的绝对路径；文件缺失时 `createFromPath` 会得到空图，调用方据此跳过。
+ */
+function linuxWindowIcon(): NativeImage | undefined {
+  const iconPath = app.isPackaged
+    ? join(process.resourcesPath, 'icon.png')
+    : join(app.getAppPath(), 'resources', 'icon-linux.png')
+  const image = nativeImage.createFromPath(iconPath)
+  return image.isEmpty() ? undefined : image
+}
+
 function createWindow(preload: string, show = false, primary = false): BrowserWindow {
+  // 判定与取值分开，`icon` 才是确定存在的 NativeImage——直接塞
+  // `NativeImage | undefined` 会被 exactOptionalPropertyTypes 拒绝。
+  const windowIcon = process.platform === 'linux' ? linuxWindowIcon() : undefined
   const window = new BrowserWindow({
     width: 1280,
     height: 820,
     minWidth: 520,
     minHeight: 600,
     show,
+    ...(windowIcon === undefined ? {} : { icon: windowIcon }),
     ...(process.platform === 'win32' && primary ? {
       titleBarStyle: 'hidden' as const,
       titleBarOverlay: { height: WINDOWS_TITLEBAR_HEIGHT, color: chromeFallbackFill(),
@@ -922,7 +945,9 @@ async function main(): Promise<void> {
     updates.dispose()
   })
 
-  const applicationIconPath = development ? join(app.getAppPath(), 'resources', 'icon-windows.png')
+  // Linux 用人工提供的 icon-linux.png（窗口/关于面板），其余平台沿用 icon-windows.png。
+  const applicationIconPath = development
+    ? join(app.getAppPath(), 'resources', process.platform === 'linux' ? 'icon-linux.png' : 'icon-windows.png')
     : join(process.resourcesPath, 'icon.png')
   app.setAboutPanelOptions({
     applicationName: 'DeepSeek Harness',

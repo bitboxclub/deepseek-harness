@@ -149,7 +149,15 @@ export function createElectronBuilderConfig(
     asarUnpack: unpack,
     extraResources: [
       { from: buildPaths.runtime, to: 'runtime' },
-      { from: fileURLToPath(new URL('../resources/icon-windows.png', import.meta.url)), to: 'icon.png' },
+      // 运行时窗口/关于面板图标。Linux 用人工提供的 icon-linux.png（原样复制，
+      // 不再渲染），Windows 沿用多尺寸 icon-windows.png。
+      {
+        from: fileURLToPath(new URL(
+          packagesLinux ? '../resources/icon-linux.png' : '../resources/icon-windows.png',
+          import.meta.url,
+        )),
+        to: 'icon.png',
+      },
       // Tray bitmaps. Windows takes the multi-size ICO; Linux panels take a PNG, and
       // `nativeImage` picks the sibling `tray@2x.png` on HiDPI displays by itself, so
       // both files must sit next to each other in resources/. macOS keeps the Dock.
@@ -249,8 +257,9 @@ export function createElectronBuilderConfig(
       // 1104x1104，只会装进 hicolor/1104x1104/apps/ —— 而桌面环境查找图标时只认
       // hicolor index.theme 的 Directories= 清单（本机为 16/22/24/32/36/48/64/72/
       // 96/128/192/256/512，**不含 1104**），于是图标永远查不到，启动器退回通用图标。
-      // 目录内的 <N>x<N>.png 由 build/tools/render-app-icons.mjs 从 icon.svg 渲染，
-      // 小尺寸直接栅格化（比缩小 1104px 位图锐利）。改矢量源后重跑该脚本即可。
+      // 目录内的 <N>x<N>.png 由 build/tools/stage-icons.mjs 从 build/assets/icons/
+      // **原样复制**（含尺寸/色型校验），不再由任何矢量源栅格化：从大图缩放出来的
+      // 小尺寸一律是糊影。规格与文件清单见 build/图标规格.md。
       icon: fileURLToPath(new URL('../resources/icons', import.meta.url)),
       // 必须显式指定可执行名。Linux 下 electron-builder 的默认值是
       // appInfo.sanitizedName.toLowerCase()，即包名 '@deepseek-ai/dsh-desktop' 经
@@ -283,6 +292,14 @@ export function createElectronBuilderConfig(
       //     额外覆盖反而容易与 Electron 实际行为脱节。
     },
     deb: {
+      // afterInstall/afterRemove 属于 DebOptions（schema 里 linux 节没有这两个键，
+      // 挂到 linux 下会被 additionalProperties:false 直接拒绝）。以 EB 26.15.3
+      // 默认模板为基底（FpmTarget 的 createScripts() 对其做
+      // ${executable}/${sanitizedProductName}/${productFilename} 宏渲染），
+      // 追加 /usr/bin/dsh 软链：包内 runtime/cli/bin/dsh 不在 PATH 里，
+      // 没有这一步终端永远敲不到 dsh。
+      afterInstall: fileURLToPath(new URL('../installer/linux-after-install.sh', import.meta.url)),
+      afterRemove: fileURLToPath(new URL('../installer/linux-after-remove.sh', import.meta.url)),
       // 自包含分发：核心运行时已随包携带，仅声明 Electron/Chromium 所需的系统图形库。
       // 这些库在银河麒麟/统信等国产桌面系统上默认已装；以小写包名书写，兼容 dpkg 解析。
       depends: [
