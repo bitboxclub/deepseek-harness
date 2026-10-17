@@ -11,9 +11,14 @@ else
     rm -f '/usr/bin/${executable}'
 fi
 
-# dsh CLI: only the link installed by this package. The underlying launcher disappears
-# with /opt; rm -f tolerates it already being gone (dpkg upgrading, not purging).
-rm -f '/usr/bin/dsh'
+# dsh CLI: drop only this package's alternative, the same way the application binary above is
+# removed. The launcher itself disappears with /opt, and a system with update-alternatives is
+# never left with a bare `rm` that could delete a file another package owns.
+if type update-alternatives >/dev/null 2>&1; then
+    update-alternatives --remove 'dsh' '/opt/${sanitizedProductName}/resources/runtime/cli/bin/dsh' 2>/dev/null || true
+else
+    rm -f '/usr/bin/dsh'
+fi
 
 APPARMOR_PROFILE_DEST='/etc/apparmor.d/${executable}'
 

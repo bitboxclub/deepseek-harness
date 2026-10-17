@@ -150,11 +150,12 @@ export function createElectronBuilderConfig(
     asarUnpack: unpack,
     extraResources: [
       { from: buildPaths.runtime, to: 'runtime' },
-      // Window and about-panel icon. Linux ships the committed `icon-linux.png` as-is; Windows
-      // keeps its multi-size `icon-windows.png`.
+      // Window and about-panel icon. Linux reuses the 512 px entry of the sized set below, so one
+      // committed bitmap serves both the window icon and the launcher icon; Windows keeps its
+      // multi-size `icon-windows.png`.
       {
         from: fileURLToPath(new URL(
-          packagesLinux ? '../resources/icon-linux.png' : '../resources/icon-windows.png',
+          packagesLinux ? '../resources/icons/512x512.png' : '../resources/icon-windows.png',
           import.meta.url,
         )),
         to: 'icon.png',
@@ -301,6 +302,9 @@ export function createElectronBuilderConfig(
         'libxtst6',
         'xdg-utils',
         'libatspi2.0-0',
+        // Supplying `depends` replaces electron-builder's default list, which includes libuuid1;
+        // dropping it would leave Chromium's uuid lookup unsatisfied on a minimal install.
+        'libuuid1',
         'libsecret-1-0',
         'libasound2',
         'libgbm1',

@@ -18,10 +18,15 @@ else
     ln -sf '/opt/${sanitizedProductName}/${executable}' '/usr/bin/${executable}'
 fi
 
-# dsh CLI: the launcher resolves its own location, so a plain symlink suffices. ln -sf keeps an
-# upgrade idempotent, and a missing launcher warns instead of failing the install.
+# dsh CLI: the launcher resolves its own location, so a link under /usr/bin suffices. Register it
+# with update-alternatives like the application binary above rather than with a bare `ln -sf`:
+# overwriting and later deleting a file another package owns would break that package.
 if [ -e '/opt/${sanitizedProductName}/resources/runtime/cli/bin/dsh' ]; then
-    ln -sf '/opt/${sanitizedProductName}/resources/runtime/cli/bin/dsh' '/usr/bin/dsh'
+    if type update-alternatives >/dev/null 2>&1; then
+        update-alternatives --install '/usr/bin/dsh' 'dsh' '/opt/${sanitizedProductName}/resources/runtime/cli/bin/dsh' 100 || ln -sf '/opt/${sanitizedProductName}/resources/runtime/cli/bin/dsh' '/usr/bin/dsh'
+    else
+        ln -sf '/opt/${sanitizedProductName}/resources/runtime/cli/bin/dsh' '/usr/bin/dsh'
+    fi
 else
     echo "warning: dsh CLI launcher missing, skipping /usr/bin/dsh" >&2
 fi

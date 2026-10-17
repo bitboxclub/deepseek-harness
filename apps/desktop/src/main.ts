@@ -205,8 +205,8 @@ function platformLoginUrl(authorizeUrl: string): string {
 }
 
 /**
- * Window icon for Linux: `resources/icon.png` once packaged, the committed `icon-linux.png` in the
- * source tree otherwise.
+ * Window icon for Linux: `resources/icon.png` once packaged, the committed 512 px entry of the
+ * sized icon set in the source tree otherwise.
  *
  * A Linux window manager reads `_NET_WM_ICON` from the window itself and uses the theme icon only
  * once the panel has associated the window with a `.desktop` entry through `StartupWMClass`.
@@ -219,7 +219,7 @@ function platformLoginUrl(authorizeUrl: string): string {
 function linuxWindowIcon(): NativeImage | undefined {
   const iconPath = app.isPackaged
     ? join(process.resourcesPath, 'icon.png')
-    : join(app.getAppPath(), 'resources', 'icon-linux.png')
+    : join(app.getAppPath(), 'resources', 'icons', '512x512.png')
   const image = nativeImage.createFromPath(iconPath)
   return image.isEmpty() ? undefined : image
 }
@@ -947,10 +947,11 @@ async function main(): Promise<void> {
     updates.dispose()
   })
 
-  // Linux reads the committed icon-linux.png for the window and about panel; other platforms keep
-  // icon-windows.png.
+  // Linux reads the 512 px entry of the sized icon set for the window and about panel; other
+  // platforms keep icon-windows.png.
+  const developmentIcon = process.platform === 'linux' ? ['icons', '512x512.png'] : ['icon-windows.png']
   const applicationIconPath = development
-    ? join(app.getAppPath(), 'resources', process.platform === 'linux' ? 'icon-linux.png' : 'icon-windows.png')
+    ? join(app.getAppPath(), 'resources', ...developmentIcon)
     : join(process.resourcesPath, 'icon.png')
   app.setAboutPanelOptions({
     applicationName: 'DeepSeek Harness',

@@ -34,9 +34,11 @@ export interface DesktopElectronBuilderConfig {
     readonly target: readonly ['deb']
   }
   readonly deb: {
-    /** Macro-rendered maintainer scripts; base is EB's default, plus the /usr/bin/dsh symlink. */
+    /** Macro-rendered maintainer scripts; base is EB's default, plus the /usr/bin/dsh alternative. */
     readonly afterInstall: string
     readonly afterRemove: string
+    /** Complete dependency list: supplying it replaces electron-builder's own default list. */
+    readonly depends: readonly string[]
   }
   readonly mac: {
     readonly extendInfo: { readonly NSMicrophoneUsageDescription: string }
