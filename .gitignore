@@ -28,6 +28,7 @@ tmp/
 .vscode/
 .DS_Store
 .idea
+.workbuddy/
 mise.toml
 dist-exe/
 /dist/
