@@ -57,9 +57,10 @@ export function createElectronBuilderConfig(
   const packagesMacOS = targetPlatform === 'darwin' || (targetPlatform === undefined && hostPlatform === 'darwin')
   const packagesWindows = resolvedPlatform === 'win32'
   const packagesLinux = resolvedPlatform === 'linux'
-  // Linux 为本地社区构建目标：不发布更新源，也不做强制更新策略校验。
-  // 省略 dshMandatoryUpdatePolicy 时运行时 resolveDesktopPolicyConfig 返回 undefined，
-  // 即不启用任何强制更新（这正是我们此处的意图）。
+  // A Linux target publishes no update feed and answers to no policy service, so it carries no
+  // mandatory-update policy. Omitting the field is what disables enforcement: the runtime
+  // resolves a missing policy to undefined. See
+  // .agents/notes/implemented/architecture/2026-10-12-linux-community-desktop-target.md.
   const policy = packagesLinux ? undefined : resolveDesktopPolicyEnvironment(env)
   if (env.DSH_DESKTOP_UNSIGNED !== undefined && !['0', '1'].includes(env.DSH_DESKTOP_UNSIGNED)) {
     throw new Error('desktop package: DSH_DESKTOP_UNSIGNED must be 0 or 1')
@@ -107,7 +108,7 @@ export function createElectronBuilderConfig(
     protocols: [{ name: 'DeepSeek Harness', schemes: ['dsh'] }],
     extraMetadata: {
       dshDesktopAppId: appId,
-      // Linux 目标不带强制更新策略字段（undefined 会被 electron-builder 忽略）。
+      // A Linux target carries no mandatory-update policy field.
       ...policy === undefined ? {} : { dshMandatoryUpdatePolicy: policy },
       ...buildVersion === productVersion ? {} : { version: buildVersion },
       ...packaged === undefined ? {} : { dshBuildCommit: packaged.commit, dshBuildDirty: packaged.dirty },
@@ -149,8 +150,8 @@ export function createElectronBuilderConfig(
     asarUnpack: unpack,
     extraResources: [
       { from: buildPaths.runtime, to: 'runtime' },
-      // 运行时窗口/关于面板图标。Linux 用人工提供的 icon-linux.png（原样复制，
-      // 不再渲染），Windows 沿用多尺寸 icon-windows.png。
+      // Window and about-panel icon. Linux ships the committed `icon-linux.png` as-is; Windows
+      // keeps its multi-size `icon-windows.png`.
       {
         from: fileURLToPath(new URL(
           packagesLinux ? '../resources/icon-linux.png' : '../resources/icon-windows.png',
@@ -251,57 +252,47 @@ export function createElectronBuilderConfig(
       target: ['nsis'],
     },
     linux: {
-      // 必须是【定尺寸图标目录】，不能是单张 PNG。
-      // electron-builder 把每个图标装到 /usr/share/icons/hicolor/<尺寸>x<尺寸>/apps/，
-      // 目录名取自图标的像素尺寸（FpmTarget.js 的 sizeName）。单张 icon.png 是
-      // 1104x1104，只会装进 hicolor/1104x1104/apps/ —— 而桌面环境查找图标时只认
-      // hicolor index.theme 的 Directories= 清单（本机为 16/22/24/32/36/48/64/72/
-      // 96/128/192/256/512，**不含 1104**），于是图标永远查不到，启动器退回通用图标。
-      // 目录内的 <N>x<N>.png 由 build/tools/stage-icons.mjs 从 build/assets/icons/
-      // **原样复制**（含尺寸/色型校验），不再由任何矢量源栅格化：从大图缩放出来的
-      // 小尺寸一律是糊影。规格与文件清单见 build/图标规格.md。
+      // A sized icon *directory*, not a single PNG. electron-builder installs each entry into
+      // /usr/share/icons/hicolor/<N>x<N>/apps/ and names that directory from the image's pixel
+      // size, while desktop environments only resolve an icon whose size appears in the installed
+      // hicolor index.theme `Directories` list. One large PNG therefore lands in a size no theme
+      // lists and the launcher falls back to a generic icon. Each `<N>x<N>.png` here is a
+      // committed bitmap rasterized per size from resources/icon.svg rather than downscaled from
+      // one large image; tests/installer-packaging.spec.ts holds the size set.
       icon: fileURLToPath(new URL('../resources/icons', import.meta.url)),
-      // 必须显式指定可执行名。Linux 下 electron-builder 的默认值是
-      // appInfo.sanitizedName.toLowerCase()，即包名 '@deepseek-ai/dsh-desktop' 经
-      // sanitize 后的 '@deepseek-aidsh-desktop'——既不适合做命令名，也与
-      // smoke-packaged-runtime.ts 的自检路径不一致。这里统一为 deepseek-harness。
+      // The command name, the installed PNG stem, and the .desktop file stem all derive from
+      // this. electron-builder's Linux default is the sanitized package name, which for
+      // '@deepseek-ai/dsh-desktop' is '@deepseek-aidsh-desktop' — unusable as a command and
+      // inconsistent with the path smoke-packaged-runtime.ts checks.
       executableName: 'deepseek-harness',
-      // StartupWMClass 与 Electron 的 app_id（取自 package.json 的 desktopName）必须一致，
-      // 桌面环境才能把运行中的窗口关联到本 .desktop 条目——任务栏因此显示应用图标
-      // 而不是通用图标。不设 desktopName 时 electron-builder 回落到 productName
-      // （'DeepSeek Harness'，含空格），与 Electron 实际使用的 app_id 不匹配。
-      // syncDesktopName 让 .desktop 文件名也从 desktopName 推导，三者保持一致。
+      // StartupWMClass must equal Electron's app_id, which comes from package.json `desktopName`.
+      // Without desktopName the WM class falls back to productName ('DeepSeek Harness', with a
+      // space), which no .desktop filename can match, so running windows never associate with
+      // their launcher entry. syncDesktopName derives the filename from the same value.
       syncDesktopName: true,
-      // 麒麟/统信等国产桌面均基于 Debian 系，deb 为最通用交付形态。
+      // The Kylin and UOS desktops are Debian-based, so a deb is the portable delivery form.
       target: ['deb'],
       maintainer: 'DeepSeek Harness local build',
       synopsis: 'DeepSeek Harness',
-      description: 'DeepSeek Harness desktop client (local Linux/aarch64 build).',
-      // 分类直接写完整 freedesktop 分类串；electron-builder 会补末尾分号，
-      // 并据此生成 .desktop 的 Categories。留空则回落为 "Utility"。
+      description: 'DeepSeek Harness desktop client (local Linux build).',
+      // The full freedesktop category string; electron-builder appends the trailing semicolon and
+      // renders it into the .desktop `Categories` key. An empty value falls back to "Utility".
       category: 'Development;Utility;',
-      // 刻意【不】设置 desktop / desktop.entry / StartupWMClass：
-      //   · electron-builder 26 的 schema 里 linux.desktop 只允许
-      //     { entry, desktopActions }（additionalProperties: false），
-      //     把 Name/Comment/Categories 平铺在 desktop 下会被直接拒绝。
-      //   · 三者都能自动推导且更准确：
-      //       Name     ← appInfo.productName
-      //       Comment  ← linux.description（即上面那句）
-      //       Categories ← linux.category
-      //       StartupWMClass ← 与 Electron 从 productName 取的 app_id 保持一致
-      //     额外覆盖反而容易与 Electron 实际行为脱节。
+      // desktop, desktop.entry, and StartupWMClass are deliberately unset: electron-builder 26's
+      // linux.desktop accepts only { entry, desktopActions }, and every key they would carry is
+      // derivable from the values above (Name from productName, Comment from linux.description,
+      // Categories from linux.category, StartupWMClass from desktopName).
     },
     deb: {
-      // afterInstall/afterRemove 属于 DebOptions（schema 里 linux 节没有这两个键，
-      // 挂到 linux 下会被 additionalProperties:false 直接拒绝）。以 EB 26.15.3
-      // 默认模板为基底（FpmTarget 的 createScripts() 对其做
-      // ${executable}/${sanitizedProductName}/${productFilename} 宏渲染），
-      // 追加 /usr/bin/dsh 软链：包内 runtime/cli/bin/dsh 不在 PATH 里，
-      // 没有这一步终端永远敲不到 dsh。
+      // afterInstall and afterRemove belong to DebOptions; the linux node's schema rejects them.
+      // Both scripts are electron-builder 26.15.3's default templates (FpmTarget renders their
+      // ${executable}/${sanitizedProductName}/${productFilename} macros) plus the /usr/bin/dsh
+      // link, because the deb payload places no launcher on PATH.
       afterInstall: fileURLToPath(new URL('../installer/linux-after-install.sh', import.meta.url)),
       afterRemove: fileURLToPath(new URL('../installer/linux-after-remove.sh', import.meta.url)),
-      // 自包含分发：核心运行时已随包携带，仅声明 Electron/Chromium 所需的系统图形库。
-      // 这些库在银河麒麟/统信等国产桌面系统上默认已装；以小写包名书写，兼容 dpkg 解析。
+      // Self-contained delivery: the runtime ships in the package, so this declares only the
+      // system libraries Electron itself needs. These are the Debian-era package names, which
+      // Kylin V10 SP1 provides; Ubuntu 24.04 renamed libasound2 to libasound2t64.
       depends: [
         'libgtk-3-0',
         'libnotify4',

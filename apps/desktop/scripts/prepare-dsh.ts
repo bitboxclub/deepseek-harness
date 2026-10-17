@@ -37,17 +37,16 @@ const APP_ROOT = resolve(import.meta.dirname, '..')
 const BUILD_PATHS = resolveDesktopTargetBuildPaths()
 const DSH_OUTPUT_ROOT = BUILD_PATHS.dsh
 const BUILD_ROOT = mkdtempSync(join(tmpdir(), 'dsh-desktop-runtime-'))
-// 打包运行时的依赖仓库。上游把它放在 BUILD_ROOT 里，而 BUILD_ROOT 是每次运行新建的
-// mkdtemp，于是【每次打包都要把整个运行时依赖闭包重下一遍】（约 533 个包，含 48 MB 的
-// libreoffice-kit-wasm）。在慢速镜像链路上这一遍就必须重来，最终以 pnpm 默认 60s 的
-// fetch 超时告终。
-// 改为按目标平台持久化：首次下载后，后续打包直接复用（实测 12s vs 4m15s）。
-// 放在 targets/<target>/ 下而不是跨目标共享，因为闭包含平台专属二进制包。
-// 可用 DSH_DESKTOP_RUNTIME_STORE 覆盖。
+// The dependency store for the packaged runtime, persistent per target and overridable with
+// DSH_DESKTOP_RUNTIME_STORE. A per-run temporary store re-downloads the whole closure — about 533
+// packages including the 48 MB LibreOffice wasm tarball — on every packaging run, which is what a
+// slow registry path cannot deliver. Per target rather than shared, because the closure contains
+// platform-specific binary packages. See
+// .agents/notes/implemented/process/2026-10-12-desktop-runtime-dependency-preparation.md.
 const STORE_ROOT = process.env.DSH_DESKTOP_RUNTIME_STORE ?? join(BUILD_PATHS.root, 'runtime-store')
-// Runtime dependency fetches must tolerate a slow registry mirror: the LibreOffice
-// wasm tarball alone is 48 MB. These go into the generated npmrc (see runPnpm) —
-// passing them as `--config.*` flags delivers strings to `AbortSignal.timeout`.
+// Runtime dependency fetches must tolerate a slow registry mirror: the LibreOffice wasm tarball
+// alone is 48 MB. These reach pnpm through the generated npmrc (see runPnpm) rather than
+// `--config.*` flags, which deliver strings to `AbortSignal.timeout`.
 const RUNTIME_FETCH_TIMEOUT_MS = 1_800_000
 const RUNTIME_FETCH_RETRIES = 6
 const RUNTIME_FETCH_RETRY_MIN_MS = 20_000
@@ -88,18 +87,12 @@ function runPnpm(args: readonly string[], registry: string): Promise<void> {
     const config = join(PNPM_BUILD_STATE, 'config')
     const userConfig = join(config, 'npmrc')
     mkdirSync(config, { recursive: true })
-    // 慢速镜像链路自保，写在 npmrc 里而【不是】CLI 标志：
-    // libreoffice-kit-wasm 单个 tarball 就有 48 MB，实测在 registry.npmmirror.com 的
-    // CDN 上只有 ~73 KB/s（约需 11 分钟），远超 pnpm 默认 60s 的 fetch 超时；被掐断后
-    // 3 次重试同样撞线，最终该包缺失，构建以 “missing required LibreOffice engine wasm” 收场。
-    //
-    // 为什么不能用 `--config.fetch-timeout=…`：CLI 的 `--config.X=值` 一律以字符串进入
-    // pnpm，而该值会被直接喂给 `AbortSignal.timeout(number)`，于是抛
-    // `TypeError: The "delay" argument must be of type number` 并在重试循环里反复失败
-    // ——比原本的超时问题更糟（实测）。npmrc 里的值走 pnpm 的配置加载器，会按 schema
-    // 转成数字，行为正确。
-    //
-    // 上界取 30 分钟：既容得下 48 MB @ 27 KB/s，又不会让一条挂死的连接把构建拖到无限期。
+    // Written to the build state's npmrc rather than passed as `--config.*` flags: a CLI
+    // `--config.X=value` reaches pnpm as a string, and fetch-timeout is handed straight to
+    // `AbortSignal.timeout(number)`, which rejects a string inside the retry loop. Values from
+    // npmrc go through pnpm's configuration loader, which coerces them by schema. The 30-minute
+    // ceiling covers the 48 MB tarball on a slow CDN link without letting a hung connection hold
+    // the build indefinitely.
     writeFileSync(userConfig, [
       `fetch-timeout=${String(RUNTIME_FETCH_TIMEOUT_MS)}`,
       `fetch-retries=${String(RUNTIME_FETCH_RETRIES)}`,

@@ -42,7 +42,7 @@ describe('desktop build commit', () => {
 
   it('reads the checkout this repository is in', () => {
     const packaged = readDesktopBuildCommit(join(import.meta.dirname, '..', '..', '..'))
-    // 上游源码以 tar 包分发时没有 .git，此时返回 undefined 而不是抛错。
+    // A released source archive carries no .git and yields undefined instead of throwing.
     if (packaged === undefined) return
     expect(packaged.commit).toMatch(/^[0-9a-f]{40}$/u)
     expect(typeof packaged.dirty).toBe('boolean')

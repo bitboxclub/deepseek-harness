@@ -27,9 +27,10 @@ const FILE_SETTINGS = ['DSH_DESKTOP_WINDOWS_CER_FILE', 'DSH_DESKTOP_WINDOWS_SIGN
  * @returns {NodeJS.ProcessEnv} Isolated environment with file-owned release settings.
  */
 export function loadDesktopPackageEnvironment(platform, environment = process.env, appRoot = APP_ROOT) {
-  // Linux 为本地社区构建目标：无签名、无自动更新，直接沿用调用者环境并提供最小必需设置。
-  // DSH_DESKTOP_NPM_REGISTRY 供 prepare-dsh 在打包期执行 `pnpm install --prod` 使用：
-  // 国内环境访问 registry.npmjs.org 极慢/易断，故默认指向 npmmirror 镜像。
+  // A Linux target is a local community build with no signing and no update feed, so it keeps the
+  // caller's environment and supplies only the minimum. DSH_DESKTOP_NPM_REGISTRY serves the
+  // `pnpm install --prod` prepare-dsh runs during packaging, defaulting to the npmmirror copy of
+  // the registry because registry.npmjs.org is slow and unreliable from mainland networks.
   if (platform === 'linux') {
     const base = Object.fromEntries(Object.entries(environment)
       .filter(([name]) => !AMBIENT_RELEASE_SETTING.test(name)))
@@ -91,7 +92,7 @@ function requireReadableFile(environment, name) {
 export function validateDesktopPackageEnvironment(environment, target, options = {}) {
   resolveDesktopAppId(environment)
   resolveNpmRegistry(environment)
-  // Linux 社区构建无策略服务、无签名、无自动更新。
+  // A Linux community build has no policy service, no signing identity, and no update feed.
   if (target.platform === 'linux') return
   resolveDesktopPolicyEnvironment(environment)
   if (target.platform === 'darwin') resolveMacOSPackageSettings(environment)

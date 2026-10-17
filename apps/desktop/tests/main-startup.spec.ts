@@ -1188,8 +1188,8 @@ describe('desktop main startup', () => {
     expect(window.show).toHaveBeenCalledOnce()
   })
 
-  it('keeps a Linux status item so a hidden window stays reachable and closes without a prompt', async () => {
-    vi.stubGlobal('process', { ...process, platform: 'linux', arch: 'arm64', resourcesPath: 'desktop-test-resources' })
+  it.each(['arm64', 'x64'] as const)('keeps a Linux status item so a hidden window stays reachable and closes without a prompt on %s', async (arch) => {
+    vi.stubGlobal('process', { ...process, platform: 'linux', arch, resourcesPath: 'desktop-test-resources' })
     await readyWorkspace()
     const window = harness.windows[0]!
     // The panel item is the only always-present handle on Linux, so it must exist from startup.

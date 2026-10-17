@@ -11,10 +11,9 @@ while [ -L "$launcher" ]; do
   esac
 done
 resources=$(CDPATH= cd -- "$(dirname -- "$launcher")/../../.." && pwd -P)
-# 本脚本随 runtime/ 一起安装，其上一级即 app.asar 所在目录，macOS 与 Linux 一致：
-#   macOS: <App>.app/Contents/Resources
-#   Linux: <dir>-unpacked/resources
-# 可执行文件位置两者不同，按存在性选择，macOS 行为保持不变：
+# This script installs with runtime/, so its parent's parent is the directory holding app.asar on
+# both platforms: <App>.app/Contents/Resources on macOS, <dir>-unpacked/resources on Linux.
+# The executable sits elsewhere on each, so pick it by existence; macOS behaviour is unchanged.
 #   macOS: <App>.app/Contents/MacOS/DeepSeek Harness
 #   Linux: <dir>-unpacked/deepseek-harness
 executable="$resources/../MacOS/DeepSeek Harness"

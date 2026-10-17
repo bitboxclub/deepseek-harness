@@ -65,14 +65,14 @@ describe('installer preparation preserves application dependencies', () => {
     }
   })
 
-  it('ships the sized icon set and the tray PNG pair the Linux desktop reads', async () => {
+  it.each(['arm64', 'x64'] as const)('ships the sized icon set and the tray PNG pair the Linux desktop reads on %s', async (arch) => {
     const { readdirSync } = await import('node:fs')
     const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
     const config = createElectronBuilderConfig({
       DSH_DESKTOP_APP_ID: 'com.example.installer',
       DSH_DESKTOP_TARGET_PLATFORM: 'linux',
-      DSH_DESKTOP_TARGET_ARCH: 'arm64',
-    }, 'linux', 'arm64')
+      DSH_DESKTOP_TARGET_ARCH: arch,
+    }, 'linux', arch)
     // A single PNG lands in hicolor/<its own pixel size>/apps/, and a directory is the only way to
     // install the standard size set the desktop looks up. electron-builder names each entry
     // `<N>x<N>.png` and matches it by that pattern, so the directory must hold exactly that shape.
@@ -105,9 +105,13 @@ describe('installer preparation preserves application dependencies', () => {
     // The keys live under DebOptions — the linux node's schema rejects them.
     const installScript = readFileSync(config.deb.afterInstall, 'utf8')
     const removeScript = readFileSync(config.deb.afterRemove, 'utf8')
-expect(installScript).toContain("ln -sf '/opt/\${sanitizedProductName}/resources/runtime/cli/bin/dsh' '/usr/bin/dsh'")
-    expect(installScript).toContain("'/usr/bin/\${executable}'")
+    expect(installScript).toContain("ln -sf '/opt/${sanitizedProductName}/resources/runtime/cli/bin/dsh' '/usr/bin/dsh'")
+    expect(installScript).toContain("'/usr/bin/${executable}'")
     expect(removeScript).toContain("rm -f '/usr/bin/dsh'")
+    // Linux is a local community target: no update feed and no mandatory-update policy field
+    // reach the packaged manifest, on either architecture.
+    expect(config.publish).toBeNull()
+    expect(config.extraMetadata).not.toHaveProperty('dshMandatoryUpdatePolicy')
   })
 
   it('names unsigned Windows artifacts so they cannot pass for release builds', async () => {

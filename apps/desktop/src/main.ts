@@ -205,14 +205,16 @@ function platformLoginUrl(authorizeUrl: string): string {
 }
 
 /**
- * Linux 窗口图标路径：打包后是 resources/icon.png，开发态是源码树里就位的
- * icon-linux.png。
+ * Window icon for Linux: `resources/icon.png` once packaged, the committed `icon-linux.png` in the
+ * source tree otherwise.
  *
- * 麒麟/UKUI 的窗口管理器从窗口本身取 `_NET_WM_ICON`；只有面板按 `StartupWMClass`
- * 关联到 `.desktop` 条目时才会改用主题图标。显式设置窗口图标，可让标题栏、Alt-Tab
- * 与面板三处都不退化成通用图标。
+ * A Linux window manager reads `_NET_WM_ICON` from the window itself and uses the theme icon only
+ * once the panel has associated the window with a `.desktop` entry through `StartupWMClass`.
+ * Setting the icon explicitly keeps the title bar, Alt-Tab, and the panel from falling back to a
+ * generic glyph in that interval.
  *
- * @returns 图标文件的绝对路径；文件缺失时 `createFromPath` 会得到空图，调用方据此跳过。
+ * @returns The icon file's absolute path; a missing file yields an empty image, which the caller
+ *   treats as no icon.
  */
 function linuxWindowIcon(): NativeImage | undefined {
   const iconPath = app.isPackaged
@@ -223,8 +225,8 @@ function linuxWindowIcon(): NativeImage | undefined {
 }
 
 function createWindow(preload: string, show = false, primary = false): BrowserWindow {
-  // 判定与取值分开，`icon` 才是确定存在的 NativeImage——直接塞
-  // `NativeImage | undefined` 会被 exactOptionalPropertyTypes 拒绝。
+  // The decision and the value are separate so that `icon` is a NativeImage known to exist:
+  // exactOptionalPropertyTypes rejects `NativeImage | undefined` here.
   const windowIcon = process.platform === 'linux' ? linuxWindowIcon() : undefined
   const window = new BrowserWindow({
     width: 1280,
@@ -945,7 +947,8 @@ async function main(): Promise<void> {
     updates.dispose()
   })
 
-  // Linux 用人工提供的 icon-linux.png（窗口/关于面板），其余平台沿用 icon-windows.png。
+  // Linux reads the committed icon-linux.png for the window and about panel; other platforms keep
+  // icon-windows.png.
   const applicationIconPath = development
     ? join(app.getAppPath(), 'resources', process.platform === 'linux' ? 'icon-linux.png' : 'icon-windows.png')
     : join(process.resourcesPath, 'icon.png')

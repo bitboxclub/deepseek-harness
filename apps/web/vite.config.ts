@@ -177,7 +177,10 @@ export default defineConfig({
     // The worker bootstrap holds its page at top-level await; Vite's default
     // `modules` target (es2020-era) rejects that syntax.
     target: 'es2022',
-    sourcemap: true,
+    // scripts/build.ts --no-source-maps sets DSH_BUILD_EMIT_MAPS=0 for a packaging build. The
+    // dist maps would otherwise enter app.asar with renderer/**, where nothing reads them.
+    // A development build leaves the variable unset and emits them as before.
+    sourcemap: process.env.DSH_BUILD_EMIT_MAPS !== '0',
     rollupOptions: {
       input: {
         index: src('./index.html'),

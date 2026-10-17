@@ -18,6 +18,12 @@ overrides:
   'extract-zip>yauzl': '3.4.0'
   '@deepseek-ai/cosmokit': 'link:vendor/cosmokit'
   '@deepseek-ai/schemastery': 'link:vendor/schemastery'
+  # One micromark-util-types identity across the Markdown closure. Every consumer accepts
+  # ^2.0.0; resolution had split it, leaving TypeScript with two incompatible Extension types
+  # and failing ui-primitives' mixed extension array. 2.0.3 is what the runtime core and every
+  # extension already use. See
+  # .agents/notes/implemented/process/2026-10-12-single-micromark-util-types-identity.md.
+  micromark-util-types: 2.0.3
 
 peerDependencyRules:
   allowedVersions:
@@ -106,17 +112,15 @@ patchedDependencies:
   exceljs@4.4.0: patches/exceljs@4.4.0.patch
   node-pty@1.2.0-beta.15: patches/node-pty@1.2.0-beta.15.patch
 
-# 固定 pnpm 的虚拟仓库布局：pnpm 11 的 enableGlobalVirtualStore 默认值随 CI 变化
-# （pnpm dist 的 resolveConfig：CI=true → false；非 CI 时该键留空）。本移植的构建
-# 脚本为了让根 postinstall（scripts/install-lefthook.mjs，要求 git ≥ 2.26，本机
-# 2.25.1）提前返回而以 CI=true 执行 `pnpm install`，打包阶段的 pnpm 调用却不在 CI 下，
-# 于是 pnpm 记在 node_modules/.pnpm-workspace-state-v1.json 里的 workspace 状态
-# （false）与后来解析出的空值不一致，判定 node_modules 过期并尝试整目录重建，
-# 非交互环境直接 ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY（实测）。
+# Pin the virtual store layout. pnpm 11 derives enableGlobalVirtualStore from CI (false when CI is
+# set, unset otherwise), and this build invokes pnpm both ways: `pnpm install` runs with CI=true so
+# the root postinstall (scripts/install-lefthook.mjs, which needs git >= 2.26) returns early, while
+# the packaging steps run without it. pnpm then reads the recorded workspace state as stale and
+# tries to rebuild node_modules, which fails without a TTY.
 #
-# 取值必须是 false：这是项目安装（非 `pnpm --global`）的既有布局，`.pnpm` 虚拟仓库
-# 留在项目内。写 true 会把它挪进全局 store（links/），
-# electron-builder 的 node-module collector 随之找不到 electron-updater 的传递依赖
-# （打包日志出现 `dependency not found on disk`，产出的 app.asar 缺 fs-extra 等包，
-# 应用启动即 `Cannot find module 'fs-extra'`——实测踩过）。
+# The value must be false: this is a project install and .pnpm belongs inside the project. true
+# moves it into the global store's links/, where electron-builder's node-module collector no longer
+# finds electron-updater's transitive dependencies and the packaged app.asar omits packages such
+# as fs-extra. See
+# .agents/notes/implemented/process/2026-10-12-pinned-pnpm-virtual-store-layout.md.
 enableGlobalVirtualStore: false

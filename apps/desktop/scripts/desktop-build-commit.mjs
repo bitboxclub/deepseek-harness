@@ -22,8 +22,8 @@ export const DESKTOP_BUILD_DIRTY_ENV = 'DSH_DESKTOP_BUILD_DIRTY'
  */
 export function readDesktopBuildCommit(repositoryRoot) {
   try {
-    // stdio 必须显式给全：execFileSync 同步变体默认把子进程 stderr 透传到父进程，
-    // 非 git 目录下 git 的 "fatal: not a git repository" 会污染构建日志。
+    // stdio must be given in full: the synchronous execFileSync forwards the child's stderr to
+    // this process by default, which would put git's "fatal: not a git repository" into the log.
     const git = (args) => execFileSync('git', args, {
       cwd: repositoryRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
     }).trim()
@@ -33,7 +33,7 @@ export function readDesktopBuildCommit(repositoryRoot) {
     }
   }
   catch {
-    // 源码归档（tar 包）没有 .git，无法记录提交信息；调用方按缺省处理。
+    // A released source archive carries no .git, so the caller treats the commit as unknown.
     return undefined
   }
 }

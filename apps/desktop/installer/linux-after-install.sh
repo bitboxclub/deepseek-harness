@@ -1,12 +1,12 @@
 #!/bin/bash
-# electron-builder 的默认 after-install（app-builder-lib 26.15.3 的
-# templates/linux/after-install.tpl），外加一段：把 dsh CLI 启动器放进 PATH。
+# electron-builder's default after-install (app-builder-lib 26.15.3
+# templates/linux/after-install.tpl) plus one addition: put the dsh CLI launcher on PATH.
 #
-# 应用包内自带启动器：
+# The package carries its own launcher at
 #   /opt/DeepSeek Harness/resources/runtime/cli/bin/dsh
-# （该 shell 脚本自适应 macOS .app 与 Linux 布局），但 deb 载荷本身不会往
-# /usr/bin 放任何东西。没有下面的软链，终端里永远敲不到 dsh，而无头驱动
-# 本产品恰恰要靠它。
+# (that shell script adapts to the macOS .app and the Linux layout), but the deb payload places
+# nothing under /usr/bin. Without the symlink below a terminal cannot reach dsh, and headless
+# driving is a primary use of this product.
 
 if type update-alternatives >/dev/null 2>&1; then
     # Remove previous link if it doesn't use update-alternatives
@@ -18,8 +18,8 @@ else
     ln -sf '/opt/${sanitizedProductName}/${executable}' '/usr/bin/${executable}'
 fi
 
-# dsh CLI：启动器脚本自行解析自身位置，普通软链即可。ln -sf 保证升级重装幂等；
-# 只把链接指向本包内容，不覆盖其它来源的 dsh（不存在时告警跳过，不失败安装）。
+# dsh CLI: the launcher resolves its own location, so a plain symlink suffices. ln -sf keeps an
+# upgrade idempotent, and a missing launcher warns instead of failing the install.
 if [ -e '/opt/${sanitizedProductName}/resources/runtime/cli/bin/dsh' ]; then
     ln -sf '/opt/${sanitizedProductName}/resources/runtime/cli/bin/dsh' '/usr/bin/dsh'
 else

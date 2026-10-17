@@ -23,7 +23,7 @@ const UPDATE_ENVIRONMENTS = {
 }
 
 const UPDATE_TARGETS = new Set(['mac-arm64', 'mac-x64', 'win-x64'])
-/** 本地构建目标（含 Linux）也写入完成记录，但只有 UPDATE_TARGETS 会发布更新源。 */
+/** Every packaging target writes a completion record; only UPDATE_TARGETS publishes a feed. */
 const RECORD_TARGETS = new Set(['mac-arm64', 'mac-x64', 'win-x64', 'linux-arm64', 'linux-x64'])
 
 /**

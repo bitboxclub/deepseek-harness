@@ -159,7 +159,7 @@ function writeReleaseRecord(
   }
   const buildVersion = resolveDesktopBuildVersion(environment, dshVersion)
   const packaged = resolveDesktopBuildCommit(environment)
-  // Linux 社区构建不发布自动更新源，记录中省略更新字段。
+  // A Linux community build publishes no feed, so its record omits the update fields.
   const update = target.platform === 'linux' ? undefined : resolveDesktopAutoUpdateConfig(environment, target.platform, target.arch)
   const recordPath = join(artifactsRoot, desktopBuildRecordFilename(target.name))
   const temporaryPath = `${recordPath}.tmp`
@@ -370,7 +370,7 @@ async function main(): Promise<void> {
   const run = createPackagingRun(join(APP_ROOT, '.desktop-build', 'packaging-runs'), {
     target: target.name, unsigned: invocation.unsigned, directory: invocation.directory, prepareOnly: invocation.prepareOnly,
     version: buildVersion, productVersion, node: process.version,
-    // 源码归档没有 .git，此时 packaged 为 undefined，记录里省略提交字段。
+    // A released source archive carries no .git, so the record omits the commit fields.
     ...packaged === undefined ? {} : { commit: packaged.commit, dirty: packaged.dirty },
   }, { parallel: target.platform === 'darwin', secrets })
   console.log(`DESKTOP_PACKAGING_RECORD ${run.directory}`)
@@ -468,7 +468,12 @@ export async function packageTarget(
         { cwd: APP_ROOT, env: electronBuilderEnv, timeoutMs: 60_000 })
     })
   }
-  await execute(['run', 'build:official'], buildEnv, REPOSITORY_ROOT)
+  // A Linux build is compiled on the machine that will run it, so it emits no source maps: the
+  // runtime file policy already filters them out of the runtime tree, and producing them anyway
+  // spends the IO of tens of thousands of small files across tsc emit, npm pack, pnpm install, and
+  // cpSync. Release paths for macOS and Windows are unchanged.
+  const packagingBuildArguments = target.platform === 'linux' ? ['--', '--no-source-maps'] : []
+  await execute(['run', 'build:official', ...packagingBuildArguments], buildEnv, REPOSITORY_ROOT)
   await execute(['run', 'release:pack', '--family', 'dsh', '--out', buildPaths.packedDsh, ...packArguments], buildEnv, REPOSITORY_ROOT)
   await execute([
     '--dir',
@@ -514,7 +519,7 @@ export async function packageTarget(
     await withMacOSNotarizationProxy(mac?.notarizationProxy,
       () => notarizeMacOS({ appPath, ...resolveMacOSNotarizationEnvironment(environment) }), undefined, undefined, proxyEvent)
   } else if (target.platform === 'linux') {
-    // 本地社区构建：无代码签名，直接产出 deb 及 unpacked 目录。
+    // A local community build: no code signing, just the deb and the unpacked directory.
     await signedStage('artifacts', () => execute(desktopElectronBuilderArguments(target, invocation.directory), electronBuilderEnv))
     await execute(['exec', 'tsx', 'scripts/smoke-packaged-runtime.ts'], targetEnv)
   } else {
