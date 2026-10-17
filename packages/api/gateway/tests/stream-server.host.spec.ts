@@ -36,8 +36,10 @@ describe('Remote stream mux server carrier lifecycle', () => {
 
     const ping = once(client, 'ping')
     const pong = once(serverSocket, 'pong')
-    expect((await ping)[0]).toEqual(Buffer.alloc(0))
-    expect((await pong)[0]).toEqual(Buffer.alloc(0))
+    // The liveness Ping carries a one-byte payload: a payload-less Ping encodes as a two-part
+    // frame whose zero-length second iovec Electron's V8 rejects with EFAULT.
+    expect((await ping)[0]).toEqual(Buffer.from([0]))
+    expect((await pong)[0]).toEqual(Buffer.from([0]))
     expect(messages).not.toHaveBeenCalled()
 
     const closingPing = vi.spyOn(serverSocket, 'ping')
