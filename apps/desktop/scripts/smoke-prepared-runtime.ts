@@ -55,13 +55,12 @@ function restoreUnpackedModes(materialized: string, unpacked: string): void {
       // Only regular files carry modes worth restoring; extractAll already made
       // header `link` entries into symlinks, whose permissions the OS ignores.
       if (!entry.isFile()) continue
-      try {
-        const source = lstatSync(join(unpacked, name))
-        if (!source.isFile()) continue
-        chmodSync(join(materialized, name), source.mode & 0o777)
-      } catch {
-        // Not an unpacked entry: extractAll already applied the header flag.
-      }
+      // A packed entry has no counterpart here and keeps the mode extractAll applied from the
+      // header. A failed chmod is not that absence: swallowing it would surface later as the EACCES
+      // this function exists to prevent.
+      const source = lstatSync(join(unpacked, name), { throwIfNoEntry: false })
+      if (source === undefined || !source.isFile()) continue
+      chmodSync(join(materialized, name), source.mode & 0o777)
     }
   }
 }

@@ -111,8 +111,8 @@ describe('desktop auto-update environment', () => {
     expect(() => resolveDesktopAutoUpdateTarget('linux', 'x64')).toThrow(/unsupported target/u)
     expect(() => desktopBuildRecordFilename('freebsd-x64' as 'mac-arm64')).toThrow(/unsupported target/u)
     // ...but it is a local packaging target, so it does write a build completion record.
-    expect(desktopBuildRecordFilename('linux-arm64' as 'mac-arm64')).toBe('linux-arm64-release.json')
-    expect(desktopBuildRecordFilename('linux-x64' as 'mac-arm64')).toBe('linux-x64-release.json')
+    expect(desktopBuildRecordFilename('linux-arm64')).toBe('linux-arm64-release.json')
+    expect(desktopBuildRecordFilename('linux-x64')).toBe('linux-x64-release.json')
   })
 
   it('uses Nightly metadata for stable and prerelease Desktop versions', () => {

@@ -14,7 +14,8 @@ export const DESKTOP_BUILD_DIRTY_ENV: 'DSH_DESKTOP_BUILD_DIRTY'
  * Read the checkout's current commit and whether it carries uncommitted changes.
  * @param repositoryRoot - Directory to inspect.
  * @returns The commit being packaged and whether its tree was modified, or undefined
- *   when the directory is not a git checkout (e.g. a released source archive).
+ *   when the directory holds no `.git` entry (e.g. a released source archive).
+ *   Throws when a present checkout's git metadata cannot be read.
  */
 export function readDesktopBuildCommit(repositoryRoot: string): DesktopBuildCommit | undefined
 

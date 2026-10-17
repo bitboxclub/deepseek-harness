@@ -53,6 +53,15 @@ describe('desktop build commit', () => {
     directories.push(directory)
     expect(readDesktopBuildCommit(directory)).toBeUndefined()
   })
+
+  it('refuses a checkout whose git metadata is unusable', async () => {
+    // Only a missing .git means "not a checkout". A present but broken one is a misconfiguration,
+    // and packaging it silently would produce artifacts that claim to come from nowhere.
+    const directory = await mkdtemp(join(tmpdir(), 'dsh-broken-git-'))
+    directories.push(directory)
+    await writeFile(join(directory, '.git'), 'not a git directory\n')
+    expect(() => readDesktopBuildCommit(directory)).toThrow()
+  })
 })
 
 describe('desktop toolchain preflight', () => {

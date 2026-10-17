@@ -18,11 +18,12 @@ overrides:
   'extract-zip>yauzl': '3.4.0'
   '@deepseek-ai/cosmokit': 'link:vendor/cosmokit'
   '@deepseek-ai/schemastery': 'link:vendor/schemastery'
-  # One micromark-util-types identity across the Markdown closure. Every consumer accepts
-  # ^2.0.0; resolution had split it, leaving TypeScript with two incompatible Extension types
-  # and failing ui-primitives' mixed extension array. 2.0.3 is what the runtime core and every
-  # extension already use. See
-  # .agents/notes/implemented/process/2026-10-12-single-micromark-util-types-identity.md.
+  # One micromark-util-types identity across the Markdown closure. Every consumer accepts ^2.0.0;
+  # resolution had split it into 2.0.2 and 2.0.3, leaving TypeScript with two incompatible
+  # Extension types and failing ui-primitives' mixed extension array. 2.0.3 is what the runtime
+  # core and every extension already use. The override has to live in this file: pnpm 11 no longer
+  # reads a `pnpm` field in the root package.json and reports it as ignored, so an override placed
+  # there has no effect.
   micromark-util-types: 2.0.3
 
 peerDependencyRules:

@@ -273,10 +273,24 @@ async function main(): Promise<void> {
     // reused, so only the missing tarball is fetched.
     if (!officeEngineReady(officeEngine)) {
       await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:repair-office-engine', async () => {
-        for (const registry of runtimeRegistries()) {
+        const registries = runtimeRegistries()
+        const failures: unknown[] = []
+        for (const registry of registries) {
           console.warn(`desktop runtime: LibreOffice engine "${officeEngine}" is missing after install; retrying against ${registry}`)
-          await runPnpm(['install', '--prod', '--frozen-lockfile', '--trust-lockfile'], registry)
+          try {
+            await runPnpm(['install', '--prod', '--frozen-lockfile', '--trust-lockfile'], registry)
+          } catch (error) {
+            // One registry can fail while the next delivers, which is what the install path already
+            // tolerates; a hard exit here would skip the remaining mirrors.
+            failures.push(error)
+            continue
+          }
           if (officeEngineReady(officeEngine)) return
+        }
+        // Only a repair that never ran reports the registry errors; a repair that ran and found no
+        // engine falls through to the missing-engine error below, which names the real problem.
+        if (failures.length === registries.length) {
+          throw new AggregateError(failures, `desktop runtime: LibreOffice engine "${officeEngine}" is still missing after every registry`)
         }
       })
     }

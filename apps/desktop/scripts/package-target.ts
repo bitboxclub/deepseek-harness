@@ -167,7 +167,9 @@ function writeReleaseRecord(
     schemaVersion: 1,
     target: target.name,
     version: buildVersion,
-    ...update === undefined ? { environment: 'local', publicUrl: null } : { environment: update.environment, publicUrl: update.publicUrl },
+    // A target that publishes no feed states that by omission, not by inventing an environment
+    // value outside `test | production` for the records upload validates.
+    ...update === undefined ? {} : { environment: update.environment, publicUrl: update.publicUrl },
     // Upload reads this to tag the commit a production release was packaged from.
     ...packaged === undefined ? {} : { commit: packaged.commit, dirty: packaged.dirty },
   }, null, 2)}\n`)
