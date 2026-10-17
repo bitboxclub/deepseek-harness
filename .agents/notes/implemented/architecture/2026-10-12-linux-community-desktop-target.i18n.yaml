@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for 2026-10-12-linux-community-desktop-target.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-10-12-linux-community-desktop-target.md
+/agent-note-linux-as-a-local-community-desktop-target:
+  en: 7964ac66e488977a
+  zh: ccef2df982e221b7
+/agent-note-linux-as-a-local-community-desktop-target/problem:
+  en: 28683bba4b3050eb
+  zh: 5dc4941942b3b1ce
+/agent-note-linux-as-a-local-community-desktop-target/decision:
+  en: 9e7a0bd410333360
+  zh: 79087051d7d8ca14
+/agent-note-linux-as-a-local-community-desktop-target/alternatives-considered:
+  en: 99343faeb33d730d
+  zh: 23c4ba2bfd17e97a
+/agent-note-linux-as-a-local-community-desktop-target/consequences:
+  en: 17123e87d15ee395
+  zh: 8d3d559265fc6687

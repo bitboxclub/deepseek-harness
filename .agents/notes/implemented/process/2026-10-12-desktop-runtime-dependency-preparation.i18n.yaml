@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for 2026-10-12-desktop-runtime-dependency-preparation.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/process/2026-10-12-desktop-runtime-dependency-preparation.md
+/agent-note-desktop-runtime-dependency-preparation-over-a-slow-mirror:
+  en: 6b432b98c1b17ee2
+  zh: 60b17263030c4932
+/agent-note-desktop-runtime-dependency-preparation-over-a-slow-mirror/problem:
+  en: 661a3936943bbb46
+  zh: 99abd8998a7d82d5
+/agent-note-desktop-runtime-dependency-preparation-over-a-slow-mirror/decision:
+  en: aad87bd1528a4f2c
+  zh: edbf2d1cf7b398f1
+/agent-note-desktop-runtime-dependency-preparation-over-a-slow-mirror/alternatives-considered:
+  en: fbc913ae92c219bb
+  zh: cbb790132cae86dc
+/agent-note-desktop-runtime-dependency-preparation-over-a-slow-mirror/consequences:
+  en: 33c0c719cef735b7
+  zh: b177ef57480c661c

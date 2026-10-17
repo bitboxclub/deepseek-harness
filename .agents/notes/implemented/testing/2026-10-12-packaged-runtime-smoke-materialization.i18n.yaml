@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for 2026-10-12-packaged-runtime-smoke-materialization.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/testing/2026-10-12-packaged-runtime-smoke-materialization.md
+/agent-note-exercising-the-packaged-runtime-on-a-materialized-archive-copy:
+  en: 062589925c46ceba
+  zh: 08f545fdb8975b20
+/agent-note-exercising-the-packaged-runtime-on-a-materialized-archive-copy/problem:
+  en: de79e3ee1d0614e8
+  zh: c0cdbe199b9ed337
+/agent-note-exercising-the-packaged-runtime-on-a-materialized-archive-copy/decision:
+  en: 2d3bcf6ae9220c87
+  zh: 6e2b2fa1f607a374
+/agent-note-exercising-the-packaged-runtime-on-a-materialized-archive-copy/alternatives-considered:
+  en: d4edf5e9aea519c1
+  zh: e49f5eb4681d5cb9
+/agent-note-exercising-the-packaged-runtime-on-a-materialized-archive-copy/consequences:
+  en: cfcda3ec3dc43324
+  zh: dfb85b1353847feb

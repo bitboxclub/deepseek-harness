@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for 2026-10-12-websocket-ping-payload-against-efault.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-12-websocket-ping-payload-against-efault.md
+/agent-note-a-one-byte-heartbeat-ping-payload:
+  en: f0656c07e6647fff
+  zh: 342ecc557f18a0d4
+/agent-note-a-one-byte-heartbeat-ping-payload/problem:
+  en: 5958bc78bc38de3c
+  zh: 5a525e98191a8fb3
+/agent-note-a-one-byte-heartbeat-ping-payload/decision:
+  en: ec92901dc61fe215
+  zh: 38c7a053b1a62114
+/agent-note-a-one-byte-heartbeat-ping-payload/alternatives-considered:
+  en: 059c2b13eb7e11d5
+  zh: d1452b573c8bc423
+/agent-note-a-one-byte-heartbeat-ping-payload/consequences:
+  en: 9771abe1c20e26a3
+  zh: 23aa9dd6f8291a74
