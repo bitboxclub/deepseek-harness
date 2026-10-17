@@ -1,4 +1,4 @@
-# Agent Note：带一字节载荷的心跳 Ping
+# Agent Note: 带一字节载荷的心跳 Ping
 
 Status: implemented
 
@@ -6,7 +6,7 @@ Status: implemented
 
 ## Problem
 
-`RemoteStreamMuxServer` 在每个心跳节拍发送存活探测 Ping 并统计错过的 Pong。在 Electron 44 上，这个 Ping 既摧毁了套接字，又重置了本应用于发现死对端的计数：每个心跳节拍都杀掉 mux 套接字，每个客户端以两秒为周期反复重连。
+`RemoteStreamMuxServer` 在每个心跳节拍发送存活探测 Ping 并统计错过的 Pong。在 Electron 44 上，这个 Ping 摧毁了承载它的套接字：每个心跳节拍都杀掉 mux 套接字，而每次重连都从归零的错过心跳计数重新开始，死对端因此永远不会被发现。
 
 无载荷 Ping 被 `ws` 编码为两段帧——两字节头加一个空缓冲——并以 `cork()`/`uncork()` 写出，于是这次写成为两元素 `writev`，第二个 iovec 长度为 0。Electron 的沙箱 V8 为零长 `ArrayBuffer` 给出的后备存储被内核拒绝，写操作以 `EFAULT` 失败。
 

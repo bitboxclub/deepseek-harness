@@ -6,7 +6,7 @@ English | [中文](2026-10-12-libreoffice-kit-asar-engine-probe.zh.md)
 
 ## Problem
 
-`@deepseek-ai/libreoffice-kit` decides whether an engine package is installed with `lstatSync(directory, { throwIfNoEntry: false }) !== undefined`. Node returns `undefined` for a path that does not exist. Electron's ASAR filesystem layer does not: its wrapper returns `null` when the archive has no such entry (`if (!stat) { …; return null }` in Electron 44's `lib/node/asar-fs-wrapper.ts`).
+`@deepseek-ai/libreoffice-kit` decides whether an engine package is installed with `(require.resolve.paths(name) ?? []).some((directory) => lstatSync(join(directory, name), { throwIfNoEntry: false }) !== void 0)`. Node returns `undefined` for a path that does not exist. Electron's ASAR filesystem layer does not: its wrapper returns `null` when the archive has no such entry (`if (!stat) { …; return null }` in Electron 44's `lib/node/asar-fs-wrapper.ts`).
 
 Inside a packaged application every `require.resolve.paths()` candidate for the engine lives in `app.asar`, so the probe reports every engine as "installed but incomplete". `resolveEngine` then throws `Installed LibreOfficeKit package is incomplete: …-linux-arm64-glibc` and never falls back to the WASM engine the runtime actually ships, because Linux native engines are not part of this install. The same code runs in `lib/index.js` (programmatic API) and `lib/cli.js` (`dsoffice`, used by the Office skills and the smoke's CLI conversion).
 

@@ -6,7 +6,7 @@ English | [中文](2026-10-12-desktop-runtime-dependency-preparation.zh.md)
 
 ## Problem
 
-`prepare-dsh.ts` installs the packaged runtime's dependency closure — about 533 packages, including the 48 MB `libreoffice-kit-wasm` tarball — and it did so into a store directory created with `mkdtemp` under `BUILD_ROOT`. Every packaging run therefore downloaded the whole closure again. On a slow registry path that run is the run that fails: pnpm's default `fetch-timeout` of 60 s expires mid-tarball, three retries expire the same way, and the build dies.
+`prepare-dsh.ts` installs the packaged runtime's dependency closure — about 533 packages, including the 48 MB `libreoffice-kit-wasm` tarball — and it did so into a store directory created with `mkdtemp` under `BUILD_ROOT`. Every packaging run therefore downloaded the whole closure again. On a slow registry path that run is the run that fails: pnpm's default `fetch-timeout` of 60 s expires mid-tarball, three retries expire the same way, and the build fails.
 
 The failure was also silent when it happened to the Office engine. `@deepseek-ai/libreoffice-kit` declares its engines as **optional** dependencies, so pnpm records a tarball it could not fetch as skipped and still exits 0. `runtime:install` reported success with the engine absent, and the build failed much later, at the packaged smoke, with a message that named the engine but not the download.
 
@@ -40,6 +40,6 @@ A warm store makes a repeat packaging run's dependency step take seconds instead
 
 The tolerances are now part of the generated `npmrc`, which means a packaging run's network behaviour is configured in one place that is visible in the build state rather than implied by defaults.
 
-The fallback list is a build-time convenience, not a distribution decision: when every registry fails, the error is an `AggregateError` carrying each attempt, and the caller still sees which registry was tried last. A deployment that must not contact the default mirrors sets `DSH_DESKTOP_RUNTIME_REGISTRY` to its own list.
+The fallback list is a build-time convenience, not a distribution decision: when every registry fails, the error is an `AggregateError` whose `errors` holds one failure per registry. A deployment that must not contact the default mirrors sets `DSH_DESKTOP_RUNTIME_REGISTRY` to its own list.
 
 An engine that is genuinely absent from the package set — rather than undeliverable — now fails with the same message as a download failure, after every registry has been tried. The distinction is not observable from the presence check, and the cost of the attempt is bounded by the store reuse.

@@ -1,4 +1,4 @@
-# Agent Note：放宽 ASAR 下的 LibreOfficeKit 引擎探测
+# Agent Note: 放宽 ASAR 下的 LibreOfficeKit 引擎探测
 
 Status: implemented
 
@@ -6,7 +6,7 @@ Status: implemented
 
 ## Problem
 
-`@deepseek-ai/libreoffice-kit` 用 `lstatSync(directory, { throwIfNoEntry: false }) !== undefined` 判断引擎包是否已安装。对不存在的路径，Node 返回 `undefined`。Electron 的 ASAR 文件系统层不同：归档中没有该条目时，其包装器返回 `null`（Electron 44 的 `lib/node/asar-fs-wrapper.ts` 中 `if (!stat) { …; return null }`）。
+`@deepseek-ai/libreoffice-kit` 用 `(require.resolve.paths(name) ?? []).some((directory) => lstatSync(join(directory, name), { throwIfNoEntry: false }) !== void 0)` 判断引擎包是否已安装。对不存在的路径，Node 返回 `undefined`。Electron 的 ASAR 文件系统层不同：归档中没有该条目时，其包装器返回 `null`（Electron 44 的 `lib/node/asar-fs-wrapper.ts` 中 `if (!stat) { …; return null }`）。
 
 在打包后的应用里，引擎的每个 `require.resolve.paths()` 候选路径都位于 `app.asar` 内，于是探测把每个引擎都报成"已安装但不完整"。`resolveEngine` 随即抛 `Installed LibreOfficeKit package is incomplete: …-linux-arm64-glibc`，并且永不回退到运行时实际随包携带的 WASM 引擎，因为 Linux 原生引擎并不属于这次安装。同一份代码在 `lib/index.js`（编程接口）与 `lib/cli.js`（`dsoffice`，被 Office 技能与冒烟的 CLI 转换使用）中运行。
 

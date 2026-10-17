@@ -4,10 +4,10 @@
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/process/2026-10-12-desktop-runtime-dependency-preparation.md
 /agent-note-desktop-runtime-dependency-preparation-over-a-slow-mirror:
   en: 6b432b98c1b17ee2
-  zh: 60b17263030c4932
+  zh: c613680a896672b3
 /agent-note-desktop-runtime-dependency-preparation-over-a-slow-mirror/problem:
-  en: 661a3936943bbb46
-  zh: 99abd8998a7d82d5
+  en: d4d8e580227b5dff
+  zh: b7caa504a720ed3a
 /agent-note-desktop-runtime-dependency-preparation-over-a-slow-mirror/decision:
   en: aad87bd1528a4f2c
   zh: edbf2d1cf7b398f1
@@ -15,5 +15,5 @@
   en: fbc913ae92c219bb
   zh: cbb790132cae86dc
 /agent-note-desktop-runtime-dependency-preparation-over-a-slow-mirror/consequences:
-  en: 33c0c719cef735b7
-  zh: b177ef57480c661c
+  en: 6ebd032bed2b2f48
+  zh: 6f911e74b702bb41

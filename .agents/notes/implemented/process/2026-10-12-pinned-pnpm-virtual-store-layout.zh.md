@@ -1,4 +1,4 @@
-# Agent Note：把 pnpm 的虚拟仓库固定在项目内
+# Agent Note: 把 pnpm 的虚拟仓库固定在项目内
 
 Status: implemented
 
@@ -8,7 +8,7 @@ Status: implemented
 
 pnpm 11 的 `enableGlobalVirtualStore` 没有单一默认值。pnpm 自身的配置解析在 `CI` 为真时把它设为 `false`，否则留空，因此同一个仓库会依据安装的调用方式产生两种取值。
 
-本仓库的一次构建会同时用到两种方式。根 `postinstall` 运行 `scripts/install-lefthook.mjs`，该脚本要求 git 2.26 而宿主只有 2.25.1，因此打包以 `CI=true` 执行 `pnpm install` 让它提前返回。其后的打包步骤则不在 `CI` 下调用 pnpm。
+打包宿主上的 workspace 安装与随后的打包步骤取的是两种取值。根 `postinstall` 运行 `scripts/install-lefthook.mjs`，该脚本要求 git 2.26；产出本次改动的麒麟宿主是 2.25.1，因此操作者以 `CI=true` 执行 `pnpm install` 让它提前返回。其后的打包步骤则不在 `CI` 下调用 pnpm。
 
 两个取值以 pnpm 无法容忍的方式冲突：记录在 `node_modules/.pnpm-workspace-state-v1.json` 里的 workspace 状态是 `false`，稍后解析出的是空值，pnpm 据此判定 `node_modules` 过期，并尝试删除重建。没有 TTY 时，终局是 `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`。
 
@@ -32,4 +32,4 @@ pnpm 11 的 `enableGlobalVirtualStore` 没有单一默认值。pnpm 自身的配
 
 该设置对开发安装与打包安装同样生效。使用较旧 pnpm 的贡献者会把该键视为未知而非错误，因为运行中的 pnpm 会忽略它不认识的 workspace 设置，而不拒绝。
 
-底层冲突仍在：`CI=true` 仍被用来绕过要求更新 git 的 `postinstall`，而打包宿主没有那个版本。若放宽 `scripts/install-lefthook.mjs` 来修好这一点，混合调用的理由便不存在，该设置也将变得多余而非错误。
+底层冲突仍在：在 git 低于 2.26 的宿主上，`CI=true` 仍被用来绕过该 `postinstall`。若放宽 `scripts/install-lefthook.mjs` 来修好这一点，混合调用的理由便不存在，该设置也将变得多余而非错误。

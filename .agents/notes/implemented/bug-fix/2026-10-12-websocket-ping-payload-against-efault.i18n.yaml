@@ -4,10 +4,10 @@
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-12-websocket-ping-payload-against-efault.md
 /agent-note-a-one-byte-heartbeat-ping-payload:
   en: f0656c07e6647fff
-  zh: 342ecc557f18a0d4
+  zh: bd4a71731faea4b8
 /agent-note-a-one-byte-heartbeat-ping-payload/problem:
-  en: 5958bc78bc38de3c
-  zh: 5a525e98191a8fb3
+  en: 8a57e6418ac709f9
+  zh: ed1b488160e1077e
 /agent-note-a-one-byte-heartbeat-ping-payload/decision:
   en: ec92901dc61fe215
   zh: 38c7a053b1a62114

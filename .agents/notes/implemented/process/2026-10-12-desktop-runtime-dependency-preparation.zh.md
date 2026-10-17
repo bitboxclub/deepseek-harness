@@ -1,4 +1,4 @@
-# Agent Note：慢速镜像下的桌面运行时依赖准备
+# Agent Note: 慢速镜像下的桌面运行时依赖准备
 
 Status: implemented
 
@@ -6,7 +6,7 @@ Status: implemented
 
 ## Problem
 
-`prepare-dsh.ts` 负责安装随包运行时的依赖闭包——约 533 个包，其中含 48 MB 的 `libreoffice-kit-wasm` tarball——而它把依赖装进 `BUILD_ROOT` 下用 `mkdtemp` 创建的仓库目录。于是每次打包都要把整个闭包重下一遍。在慢速注册表链路上，这一遍就是失败的那一遍：pnpm 默认 `fetch-timeout` 为 60 s，在 tarball 下载途中就到期，三次重试同样到期，构建随即终止。
+`prepare-dsh.ts` 负责安装随包运行时的依赖闭包——约 533 个包，其中含 48 MB 的 `libreoffice-kit-wasm` tarball——而它把依赖装进 `BUILD_ROOT` 下用 `mkdtemp` 创建的仓库目录。于是每次打包都要把整个闭包重下一遍。在慢速注册表链路上，这一遍就是失败的那一遍：pnpm 默认 `fetch-timeout` 为 60 s，在 tarball 下载途中就到期，三次重试同样到期，构建随即失败。
 
 当受影响的恰好是 Office 引擎时，失败还是静默的。`@deepseek-ai/libreoffice-kit` 把引擎声明为**可选**依赖，因此 pnpm 把取不到的 tarball 记为 skipped 并仍然退出 0。`runtime:install` 在引擎缺席的情况下报告成功，构建则在很久之后、在打包冒烟处失败，错误信息点出的是引擎名而非下载。
 
@@ -40,6 +40,6 @@ Status: implemented
 
 容差现在属于生成的 `npmrc`，这意味着打包运行的网络行为集中配置在一处，并且能在构建状态中看到，而不是由默认值隐含。
 
-回退列表是构建期便利，不是分发决策：全部注册表皆失败时，错误是一个携带各次尝试的 `AggregateError`，调用方仍能看到最后尝试的是哪个注册表。不得访问默认镜像的部署应把 `DSH_DESKTOP_RUNTIME_REGISTRY` 设为自己的列表。
+回退列表是构建期便利，不是分发决策：全部注册表皆失败时，错误是一个 `AggregateError`，其 `errors` 为每个注册表各保存一条失败记录。不得访问默认镜像的部署应把 `DSH_DESKTOP_RUNTIME_REGISTRY` 设为自己的列表。
 
 若引擎确实不在包集中（而非送不到），它现在与下载失败报同样的信息，且要等每个注册表都试过。这一区别无法从存在性检查中观测到，而尝试的代价由仓库复用所限。

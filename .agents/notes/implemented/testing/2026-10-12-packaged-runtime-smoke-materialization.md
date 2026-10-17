@@ -22,7 +22,7 @@ The order is deliberate: `verifyRuntimeArchive` runs before the copy is used, so
 
 ## Alternatives considered
 
-**Skip the smoke for packaged artifacts.** The packaged smoke is the only check that runs the fixture against what actually ships — the `--dir` path exercises a staging tree whose layout differs from the installed one. Dropping it would have removed the check that caught every defect found in this sequence.
+**Skip the smoke for packaged artifacts.** The packaged smoke is the only check that runs the fixture against what actually ships — the `--dir` path exercises a staging tree whose layout differs from the installed one. Dropping it would have removed the only check that runs the fixture against the installed layout.
 
 **Pass the archive contents through `@electron/asar` in the fixture.** The fixture would have to stop using ordinary `readFileSync` and `spawn`, which is exactly the behaviour the packaged application relies on. A fixture that reads through the archive API cannot observe a mode-bit or path-resolution defect.
 
@@ -34,7 +34,7 @@ The order is deliberate: `verifyRuntimeArchive` runs before the copy is used, so
 
 ## Consequences
 
-The packaged smoke costs one extraction of the application archive (about 0.8 s for the 14.8 MB archive with 12 302 entries) and a directory walk over 1037 files, on the packaging path only.
+The packaged smoke costs one extraction of the application archive (about 1 s for the 117.5 MB archive with 14 933 entries on the packaging host) and a directory walk over 1037 files, on the packaging path only.
 
 Two Electron behaviours are now recorded here rather than rediscovered: the Node-mode child resolves paths through the OS instead of the ASAR wrapper, and the archive header does not carry execute permission for unpacked entries. Both are properties of Electron 44 and `app-builder-lib` 26.15.3 as installed; a future version that changes either makes the materialization unnecessary but not harmful.
 

@@ -6,7 +6,7 @@ English | [中文](2026-10-12-websocket-ping-payload-against-efault.zh.md)
 
 ## Problem
 
-`RemoteStreamMuxServer` sends a liveness Ping on every heartbeat tick and counts missed Pongs. On Electron 44 the Ping both destroyed the socket and reset the counter that was meant to detect a dead peer: every heartbeat tick killed the mux socket, and every client reconnected on the two-second cadence.
+`RemoteStreamMuxServer` sends a liveness Ping on every heartbeat tick and counts missed Pongs. On Electron 44 the Ping destroyed the socket that carried it: every heartbeat tick killed the mux socket, and each reconnect started a fresh, zeroed missed-heartbeat counter, so a dead peer was never detected.
 
 A payload-less Ping is encoded by `ws` as a two-part frame — a two-byte header and an empty buffer — and written with `cork()`/`uncork()`, which makes the write a two-element `writev` whose second iovec has length 0. Electron's sandboxed V8 hands out a backing store for a zero-length `ArrayBuffer` that the kernel rejects, and the write fails with `EFAULT`.
 

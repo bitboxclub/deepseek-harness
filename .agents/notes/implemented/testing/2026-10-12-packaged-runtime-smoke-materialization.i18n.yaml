@@ -4,7 +4,7 @@
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/testing/2026-10-12-packaged-runtime-smoke-materialization.md
 /agent-note-exercising-the-packaged-runtime-on-a-materialized-archive-copy:
   en: 062589925c46ceba
-  zh: 08f545fdb8975b20
+  zh: c4aa5413f84a946e
 /agent-note-exercising-the-packaged-runtime-on-a-materialized-archive-copy/problem:
   en: de79e3ee1d0614e8
   zh: c0cdbe199b9ed337
@@ -12,8 +12,8 @@
   en: 2d3bcf6ae9220c87
   zh: 6e2b2fa1f607a374
 /agent-note-exercising-the-packaged-runtime-on-a-materialized-archive-copy/alternatives-considered:
-  en: d4edf5e9aea519c1
-  zh: e49f5eb4681d5cb9
+  en: 4e0833a9bb12b988
+  zh: f4d0564da921e722
 /agent-note-exercising-the-packaged-runtime-on-a-materialized-archive-copy/consequences:
-  en: cfcda3ec3dc43324
-  zh: dfb85b1353847feb
+  en: 61d8f863de4c5a39
+  zh: 11e9991f59c00d41

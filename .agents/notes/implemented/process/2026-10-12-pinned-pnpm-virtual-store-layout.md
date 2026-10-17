@@ -8,7 +8,7 @@ English | [中文](2026-10-12-pinned-pnpm-virtual-store-layout.zh.md)
 
 pnpm 11's `enableGlobalVirtualStore` has no single default. pnpm's own configuration resolution sets it to `false` when `CI` is truthy and leaves it unset otherwise, so the same repository produces two different values depending on how the install was invoked.
 
-This repository's install is invoked both ways in one build. The root `postinstall` runs `scripts/install-lefthook.mjs`, which requires git 2.26 and its host has 2.25.1, so packaging runs `pnpm install` with `CI=true` to make that script exit early. The packaging steps afterwards call pnpm without `CI`.
+A packaging host's workspace install and the packaging steps that follow it run under different values. The root `postinstall` runs `scripts/install-lefthook.mjs`, which requires git 2.26; the Kylin host that produced this change has 2.25.1, so its operator runs `pnpm install` with `CI=true` to make that script exit early. The packaging steps afterwards call pnpm without `CI`.
 
 The two values disagree in a way pnpm does not tolerate: the workspace state recorded in `node_modules/.pnpm-workspace-state-v1.json` says `false`, the later resolution produces an empty value, pnpm concludes `node_modules` is stale, and attempts to remove and rebuild it. Without a TTY that ends as `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`.
 
@@ -32,4 +32,4 @@ The value must be `false`, not `true`. This is a project install, and `.pnpm` be
 
 The setting applies to development installs as well as packaging ones. A contributor on an older pnpm sees the key as unknown rather than wrong, because workspace settings unknown to the running pnpm are ignored rather than rejected.
 
-The underlying conflict remains: `CI=true` is still needed to bypass a `postinstall` that requires a newer git than the packaging host has. Fixing that by relaxing `scripts/install-lefthook.mjs` would remove the reason for the mixed invocation, and this setting would become redundant rather than wrong.
+The underlying conflict remains: on a host whose git predates 2.26, `CI=true` is still needed to bypass that `postinstall`. Fixing that by relaxing `scripts/install-lefthook.mjs` would remove the reason for the mixed invocation, and this setting would become redundant rather than wrong.
