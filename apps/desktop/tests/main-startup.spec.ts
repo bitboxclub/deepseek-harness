@@ -296,7 +296,9 @@ vi.mock('electron', () => ({
   protocol: { registerSchemesAsPrivileged: vi.fn(), handle: harness.protocolHandle },
   powerMonitor: harness.powerMonitor,
   Tray: harness.FakeTray,
-  nativeImage: { createFromPath: (path: string) => ({ path }) },
+  // A real NativeImage reports emptiness, which the Linux window-icon lookup uses to treat a
+  // missing file as no icon. The mock carries the same surface so that path runs unchanged.
+  nativeImage: { createFromPath: (path: string) => ({ path, isEmpty: () => false }) },
 }))
 vi.mock('../src/background-notice.ts', () => ({ DesktopBackgroundNotice: class {
   constructor(options: { markerPath: string }) { harness.backgroundNotice.markerPath = options.markerPath }
@@ -1128,7 +1130,7 @@ describe('desktop main startup', () => {
     const host = await readyWorkspace()
     const window = harness.windows[0]!
     expect(harness.trays).toHaveLength(1)
-    expect(harness.trays[0]!.image).toEqual({ path: join('desktop-test-resources', 'tray.ico') })
+    expect(harness.trays[0]!.image).toMatchObject({ path: join('desktop-test-resources', 'tray.ico') })
     expect(harness.backgroundNotice.markerPath).toBe(join(harness.app.getPath('userData'), 'background-close-confirmed'))
     window.show.mockClear()
     window.close()
@@ -1194,7 +1196,7 @@ describe('desktop main startup', () => {
     const window = harness.windows[0]!
     // The panel item is the only always-present handle on Linux, so it must exist from startup.
     expect(harness.trays).toHaveLength(1)
-    expect(harness.trays[0]!.image).toEqual({ path: join('desktop-test-resources', 'tray.png') })
+    expect(harness.trays[0]!.image).toMatchObject({ path: join('desktop-test-resources', 'tray.png') })
     window.show.mockClear()
     window.close()
     // Linux hides without the Windows first-hide confirmation; the Host keeps running.
