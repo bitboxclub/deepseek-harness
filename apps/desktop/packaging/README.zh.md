@@ -95,9 +95,11 @@ pnpm run package:desktop
 pnpm run package:desktop:mac:arm64
 pnpm run package:desktop:mac:x64
 pnpm run package:desktop:win:x64
+pnpm run package:desktop:linux:x64
+pnpm run package:desktop:linux:arm64
 ```
 
-macOS arm64 命令要求 Apple Silicon。macOS x64 命令可以在 Intel macOS 或带 Rosetta 的 Apple Silicon 上运行。Windows x64 命令要求 Windows x64。Linux 不是受支持的 Desktop 发布目标。
+macOS arm64 命令要求 Apple Silicon。macOS x64 命令可以在 Intel macOS 或带 Rosetta 的 Apple Silicon 上运行。Windows x64 命令要求 Windows x64。每个 Linux 命令要求架构匹配的 Linux 构建主机（x86_64 上用 `linux-x64`，aarch64 上用 `linux-arm64`），并构建本地社区目标：自包含 deb，不包含代码签名、自动更新源与强制更新策略。deb 安装到 `/opt/DeepSeek Harness`，以十三个尺寸注册 hicolor 图标与一对托盘 PNG，并通过 `update-alternatives` 把 `dsh` 放进 `PATH`。
 
 macOS 正式发布和本地未签名 DMG 都通过 [electron-builder 配置](../scripts/electron-builder-config.mjs)中的 `dmg.format: 'ULMO'` 使用 LZMA 压缩。[构建时补丁](../../../patches/app-builder-lib@26.17.0.patch)为固定版本 builder 的校验规则和 TypeScript 声明添加此格式。
 

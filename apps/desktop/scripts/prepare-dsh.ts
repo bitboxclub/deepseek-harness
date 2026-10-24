@@ -44,8 +44,15 @@ const STORE_ROOT = BUILD_PATHS.pnpmStore
 const RUNTIME_ROOT = BUILD_PATHS.runtime
 const PNPM_BUILD_STATE = BUILD_PATHS.dshPnpm
 const PACKAGE_SET_ROOT = BUILD_PATHS.packageSet
-const NODE = join(BUILD_PATHS.electron, process.platform === 'win32' ? 'electron.exe' : 'Electron.app/Contents/MacOS/Electron')
+const NODE = join(BUILD_PATHS.electron, process.platform === 'win32' ? 'electron.exe'
+  : process.platform === 'linux' ? 'electron' : 'Electron.app/Contents/MacOS/Electron')
 const PNPM = join(RUNTIME_ROOT, 'primary-runtime', 'dependencies', 'pnpm', 'bin', 'pnpm.mjs')
+// Runtime dependency fetches must tolerate a slow registry mirror: the LibreOffice wasm tarball
+// alone is 48 MB. These reach pnpm through the generated npmrc (see runPnpm).
+const RUNTIME_FETCH_TIMEOUT_MS = 1_800_000
+const RUNTIME_FETCH_RETRIES = 6
+const RUNTIME_FETCH_RETRY_MIN_MS = 20_000
+const RUNTIME_FETCH_RETRY_MAX_MS = 300_000
 
 function manifestVersion(path: string, subject: string): string {
   const manifest = JSON.parse(readFileSync(path, 'utf8')) as { version?: unknown }
@@ -69,15 +76,24 @@ function desktopRelease(): DesktopRelease {
   })
 }
 
-function runPnpm(args: readonly string[]): Promise<void> {
+function runPnpm(args: readonly string[], registry: string): Promise<void> {
   return new Promise((resolvePromise, reject) => {
     const [command, ...commandArgs] = args
     if (command === undefined) throw new Error('desktop runtime: pnpm command is required')
-    const registry = resolveNpmRegistry(process.env)
     const config = join(PNPM_BUILD_STATE, 'config')
     const userConfig = join(config, 'npmrc')
     mkdirSync(config, { recursive: true })
-    writeFileSync(userConfig, '')
+    // Written to the build state's npmrc rather than passed as `--config.*` flags: a CLI
+    // `--config.X=value` reaches pnpm as a string, and fetch-timeout is handed straight to
+    // `AbortSignal.timeout(number)`, which rejects a string inside the retry loop. Values from
+    // npmrc go through pnpm's configuration loader, which coerces them by schema.
+    writeFileSync(userConfig, [
+      `fetch-timeout=${String(RUNTIME_FETCH_TIMEOUT_MS)}`,
+      `fetch-retries=${String(RUNTIME_FETCH_RETRIES)}`,
+      `fetch-retry-mintimeout=${String(RUNTIME_FETCH_RETRY_MIN_MS)}`,
+      `fetch-retry-maxtimeout=${String(RUNTIME_FETCH_RETRY_MAX_MS)}`,
+      '',
+    ].join('\n'))
     const child = spawn(NODE, [
       '--expose-internals',
       PNPM,
@@ -114,6 +130,92 @@ function runPnpm(args: readonly string[]): Promise<void> {
   })
 }
 
+/**
+ * Registries the runtime dependency install may fall back to, in order.
+ *
+ * The configured registry stays first — that is the deployment's choice. A mirror can serve
+ * metadata from a working host while its binary CDN crawls, so the install needs somewhere else to
+ * go. `DSH_DESKTOP_RUNTIME_REGISTRY` replaces the fallback list with a caller-chosen one
+ * (comma-separated). Substituting the source cannot change what gets installed: the lockfile pins
+ * every package by integrity and pnpm verifies each tarball against it.
+ */
+const RUNTIME_FALLBACK_REGISTRIES = [
+  'https://mirrors.cloud.tencent.com/npm',
+  'https://repo.huaweicloud.com/repository/npm',
+]
+
+/**
+ * @returns registry URLs to try in order; the configured registry first, then the fallbacks, with
+ * duplicates removed.
+ */
+function runtimeRegistries(): string[] {
+  const configured = process.env.DSH_DESKTOP_RUNTIME_REGISTRY
+  const fallbacks = configured === undefined
+    ? RUNTIME_FALLBACK_REGISTRIES
+    : configured.split(',').map(entry => entry.trim()).filter(entry => entry !== '')
+  const registries = [resolveNpmRegistry(process.env), ...fallbacks]
+  return registries.filter((registry, index) => registries.indexOf(registry) === index)
+}
+
+/** Run one runtime pnpm command against every registry until one delivers. */
+async function runRuntimePnpm(args: readonly string[]): Promise<void> {
+  const registries = runtimeRegistries()
+  const failures: unknown[] = []
+  for (const [index, registry] of registries.entries()) {
+    try {
+      await runPnpm(args, registry)
+      return
+    } catch (error) {
+      failures.push(error)
+      const next = registries[index + 1]
+      if (next === undefined) break
+      console.warn(`desktop runtime: "pnpm ${args.join(' ')}" failed against ${registry}; retrying against ${next}`)
+    }
+  }
+  if (failures.length === 1) throw failures[0]
+  throw new AggregateError(failures, 'desktop runtime: pnpm failed against every configured registry')
+}
+
+/**
+ * Whether the installed runtime tree carries the selected LibreOffice engine.
+ *
+ * Checked against the staging tree before materialization, so a repair can still re-run the
+ * install; the engine is an optional dependency, so a tarball pnpm could not download is recorded
+ * as skipped and the install still exits 0.
+ * @param engine - engine name from `selectOfficeEngine`.
+ */
+function officeEngineReady(engine: string): boolean {
+  return existsSync(join(BUILD_ROOT, 'node_modules', '@deepseek-ai', `libreoffice-kit-${engine}`, 'prebuilds.json'))
+}
+
+/**
+ * Repair the packaged-app Office engine probe (upstream `libreoffice-kit@0.1.5` vs Electron ASAR).
+ *
+ * `installedPackageExists()` decides an engine package is on disk with
+ * `lstatSync(dir, { throwIfNoEntry: false }) !== undefined`. Node returns `undefined` for a missing
+ * path, but Electron's ASAR filesystem layer returns `null`, so inside a packaged app every
+ * `require.resolve.paths()` candidate reports "installed but incomplete" and `resolveEngine`
+ * never falls back to the WASM engine the runtime ships.
+ *
+ * Relax the comparison to `!= null`, which excludes both values. Both copies of the function are
+ * patched: `lib/index.js` (programmatic API) and `lib/cli.js` (`dsoffice`, used by the Office
+ * skills and the smoke's CLI conversion). Fails loudly when the pattern is absent so a future kit
+ * upgrade cannot silently restore the broken fallback.
+ */
+function patchOfficeKitEngineProbe(): void {
+  const expected = 'lstatSync(join(directory, name), { throwIfNoEntry: false }) !== void 0'
+  const replacement = 'lstatSync(join(directory, name), { throwIfNoEntry: false }) != null'
+  for (const file of ['lib/index.js', 'lib/cli.js']) {
+    const path = join(DSH_OUTPUT_ROOT, 'node_modules', '@deepseek-ai', 'libreoffice-kit', file)
+    const source = readFileSync(path, 'utf8')
+    if (source.includes(replacement)) continue
+    if (!source.includes(expected)) {
+      throw new Error(`desktop runtime: Office engine probe in ${file} does not match the expected pattern; verify the LibreOfficeKit engine fallback before packaging`)
+    }
+    writeFileSync(path, source.replace(expected, replacement))
+  }
+}
+
 async function main(): Promise<void> {
   try {
     console.log(`desktop runtime: pnpm store ${STORE_ROOT}`)
@@ -129,7 +231,7 @@ async function main(): Promise<void> {
       createRuntimeProjectMetadata(BUILD_ROOT, release)
       return prepareRuntimePatches(BUILD_ROOT, resolve(APP_ROOT, '..', '..'))
     })
-    await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:lockfile', () => runPnpm(['install', '--lockfile-only']))
+    await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:lockfile', () => runRuntimePnpm(['install', '--lockfile-only']))
     verifyRuntimePatches(BUILD_ROOT, patches)
     const lockfile = readFileSync(join(BUILD_ROOT, 'pnpm-lock.yaml'), 'utf8')
     console.log(`desktop runtime: lockfile sha256 ${createHash('sha256').update(lockfile).digest('hex')}`)
@@ -137,13 +239,39 @@ async function main(): Promise<void> {
       lockfile,
       readDesktopCorePackageSet(BUILD_ROOT, release.version),
     )
-    await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:install', () => runPnpm(['install', '--prod', '--frozen-lockfile', '--trust-lockfile']))
+    await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:install', () => runRuntimePnpm(['install', '--prod', '--frozen-lockfile', '--trust-lockfile']))
     const packageSet = readDesktopCorePackageSet(BUILD_ROOT, release.version)
     const targetName = resolveDesktopBuildTarget()
     const target = desktopTargetPlatform(targetName)
     const modules = join(BUILD_ROOT, 'node_modules')
     const officeManifest = JSON.parse(readFileSync(join(modules, '@deepseek-ai/libreoffice-kit/package.json'), 'utf8'))
     const officeEngine = selectOfficeEngine(officeManifest, target)
+    // The engine is an OPTIONAL dependency of @deepseek-ai/libreoffice-kit, so pnpm records a tarball
+    // it could not download as "skipped" and still exits 0: `runtime:install` reports success with
+    // the engine absent. The Host cannot serve Office documents without it, so repair here — while
+    // the staging tree is still in place — instead of failing at the packaged smoke.
+    if (!officeEngineReady(officeEngine)) {
+      await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:repair-office-engine', async () => {
+        const registries = runtimeRegistries()
+        const failures: unknown[] = []
+        for (const registry of registries) {
+          console.warn(`desktop runtime: LibreOffice engine "${officeEngine}" is missing after install; retrying against ${registry}`)
+          try {
+            await runPnpm(['install', '--prod', '--frozen-lockfile', '--trust-lockfile'], registry)
+          } catch (error) {
+            // One registry can fail while the next delivers; a hard exit here would skip the mirrors.
+            failures.push(error)
+            continue
+          }
+          if (officeEngineReady(officeEngine)) return
+        }
+        // Only a repair that never ran reports the registry errors; a repair that ran and found no
+        // engine falls through to the missing-engine error below, which names the real problem.
+        if (failures.length === registries.length) {
+          throw new AggregateError(failures, `desktop runtime: LibreOffice engine "${officeEngine}" is still missing after every registry`)
+        }
+      })
+    }
     mkdirSync(DSH_OUTPUT_ROOT, { recursive: true })
     await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:materialize-modules', async () => {
       cpSync(modules, join(DSH_OUTPUT_ROOT, 'node_modules'), {
@@ -151,6 +279,8 @@ async function main(): Promise<void> {
         filter: source => desktopRuntimeFileExclusion(relative(modules, source), target, officeEngine) === undefined,
       })
     })
+    // Must run before runtime:write-descriptor so the sealed inventory covers the patched bytes.
+    await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:patch-office-kit', async () => patchOfficeKitEngineProbe())
     writeFileSync(join(DSH_OUTPUT_ROOT, 'package.json'), `${JSON.stringify({
       name: '@deepseek-ai/dsh-desktop-runtime', private: true, version: release.version, type: 'module',
       dependencies: Object.fromEntries(packageSet.packages.map(entry => [entry.name, entry.version])),

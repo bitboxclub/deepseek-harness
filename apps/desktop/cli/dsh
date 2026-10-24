@@ -11,4 +11,11 @@ while [ -L "$launcher" ]; do
   esac
 done
 resources=$(CDPATH= cd -- "$(dirname -- "$launcher")/../../.." && pwd -P)
-ELECTRON_RUN_AS_NODE=1 exec "$resources/../MacOS/DeepSeek Harness" --expose-internals "$resources/app.asar/dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js" "$@"
+# This script installs with runtime/, so its parent's parent is the directory holding app.asar on
+# both platforms: <App>.app/Contents/Resources on macOS, <dir>-unpacked/resources on Linux.
+# The executable sits elsewhere on each, so pick it by existence; macOS behaviour is unchanged.
+#   macOS: <App>.app/Contents/MacOS/DeepSeek Harness
+#   Linux: <dir>-unpacked/deepseek-harness
+executable="$resources/../MacOS/DeepSeek Harness"
+[ -x "$executable" ] || executable="$resources/../deepseek-harness"
+ELECTRON_RUN_AS_NODE=1 exec "$executable" --expose-internals "$resources/app.asar/dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js" "$@"

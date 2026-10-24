@@ -11,11 +11,20 @@ const paths = resolveDesktopTargetBuildPaths()
 const { values } = parseArgs({ options: { unsigned: { type: 'boolean', default: false }, 'skip-notarization': { type: 'boolean', default: false } }, allowPositionals: false })
 const target = resolveDesktopBuildTarget()
 const windows = target === 'win-x64'
+const linux = target.startsWith('linux-')
+if (values.unsigned && !windows) throw new Error('desktop smoke: unsigned artifacts require Windows')
 const artifacts = desktopArtifactOutput(paths, { unsigned: values.unsigned, skipNotarization: values['skip-notarization'] }).directory
+// electron-builder names appOutDir `<platform><archSuffix>-unpacked`; Linux has no defaultArch, so x64
+// carries no suffix (linux-unpacked) while arm64 does (linux-arm64-unpacked).
+const linuxArchSuffix = target.endsWith('-arm64') ? '-arm64' : ''
 const application = windows ? join(artifacts, 'win-unpacked')
-  : join(artifacts, target === 'mac-arm64' ? 'mac-arm64' : 'mac', 'DeepSeek Harness.app', 'Contents')
-const resources = join(application, windows ? 'resources' : 'Resources')
-const executable = windows ? join(application, 'DeepSeek Harness.exe') : join(application, 'MacOS', 'DeepSeek Harness')
+  : linux ? join(artifacts, `linux${linuxArchSuffix}-unpacked`)
+    : join(artifacts, target === 'mac-arm64' ? 'mac-arm64' : 'mac', 'DeepSeek Harness.app', 'Contents')
+const resources = join(application, windows || linux ? 'resources' : 'Resources')
+// The executable name is fixed by linux.executableName in the electron-builder config.
+const executable = windows ? join(application, 'DeepSeek Harness.exe')
+  : linux ? join(application, 'deepseek-harness')
+    : join(application, 'MacOS', 'DeepSeek Harness')
 const descriptor = await verifyDesktopRuntime(paths.dsh, readDesktopRuntime(paths.dsh).release.version,
   resolveDesktopPackageTarget(target))
 if (windows && !values.unsigned) await verifyWindowsCode(application)

@@ -107,8 +107,12 @@ describe('desktop auto-update environment', () => {
     expect(() => resolveDesktopAutoUpdateEnvironment({
       DSH_DESKTOP_AUTO_UPDATE_ENV: 'staging',
     })).toThrow(/test.*production/u)
+    // Linux publishes no update feed, so it never resolves to an auto-update target...
     expect(() => resolveDesktopAutoUpdateTarget('linux', 'x64')).toThrow(/unsupported target/u)
-    expect(() => desktopBuildRecordFilename('linux-x64' as 'mac-arm64')).toThrow(/unsupported target/u)
+    expect(() => desktopBuildRecordFilename('freebsd-x64' as 'mac-arm64')).toThrow(/unsupported target/u)
+    // ...but it is a local packaging target, so it does write a build completion record.
+    expect(desktopBuildRecordFilename('linux-arm64')).toBe('linux-arm64-release.json')
+    expect(desktopBuildRecordFilename('linux-x64')).toBe('linux-x64-release.json')
   })
 
   it('uses Nightly metadata for stable and prerelease Desktop versions', () => {

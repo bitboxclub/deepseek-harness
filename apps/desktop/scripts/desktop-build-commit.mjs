@@ -8,6 +8,8 @@
  */
 
 import { execFileSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 
 /** Environment variable that carries the packaged commit. */
 export const DESKTOP_BUILD_COMMIT_ENV = 'DSH_DESKTOP_BUILD_COMMIT'
@@ -18,10 +20,17 @@ export const DESKTOP_BUILD_DIRTY_ENV = 'DSH_DESKTOP_BUILD_DIRTY'
 /**
  * Read the checkout's current commit and whether it carries uncommitted changes.
  * @param {string} repositoryRoot - Directory to inspect.
- * @returns {{ commit: string, dirty: boolean }} The commit being packaged and whether its tree was modified.
+ * @returns {{ commit: string, dirty: boolean } | undefined} The commit being packaged and whether its tree was modified, or undefined when the directory holds no `.git` entry (e.g. a released source archive). A checkout whose git metadata is unusable throws.
  */
 export function readDesktopBuildCommit(repositoryRoot) {
-  const git = (args) => execFileSync('git', args, { cwd: repositoryRoot, encoding: 'utf8' }).trim()
+  // Only a missing checkout yields "unknown": a broken repository or a missing git executable is a
+  // misconfiguration, and the artifacts must not claim to come from nowhere.
+  if (!existsSync(join(repositoryRoot, '.git'))) return undefined
+  // stdio must be given in full: the synchronous execFileSync forwards the child's stderr to this
+  // process by default, which would put git's diagnostics into the log.
+  const git = (args) => execFileSync('git', args, {
+    cwd: repositoryRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim()
   return {
     commit: git(['rev-parse', 'HEAD']),
     dirty: git(['status', '--porcelain', '--untracked-files=normal']) !== '',

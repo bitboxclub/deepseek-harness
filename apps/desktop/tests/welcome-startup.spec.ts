@@ -96,7 +96,9 @@ vi.mock('electron', () => ({
   },
   dialog: { showErrorBox: vi.fn(), showMessageBox: vi.fn() },
   Menu: { buildFromTemplate: state.menu, setApplicationMenu: vi.fn() },
-  nativeImage: { createFromPath: (path: string) => ({ path }) },
+  // A real NativeImage reports emptiness, which the Linux window-icon lookup uses to treat a
+  // missing file as no icon.
+  nativeImage: { createFromPath: (path: string) => ({ path, isEmpty: () => false }) },
 }))
 // The Windows tray relabels through Menu as well; keep the menu call counts below platform-neutral.
 vi.mock('../src/tray.ts', () => ({ DesktopTray: class { relabel() {} dispose() {} } }))

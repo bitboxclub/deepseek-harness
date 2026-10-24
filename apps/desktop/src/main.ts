@@ -21,6 +21,7 @@ import {
   shell,
   type IpcMainInvokeEvent,
   type MenuItemConstructorOptions,
+  type NativeImage,
 } from 'electron'
 import { resolveDesktopPaths } from './paths.ts'
 import { DesktopProjectManager } from './project-manager.ts'
@@ -207,13 +208,37 @@ function platformLoginUrl(authorizeUrl: string): string {
   return url.href
 }
 
+/**
+ * Window icon for Linux: `resources/icon.png` once packaged, the committed 512 px entry of the
+ * sized icon set in the source tree otherwise.
+ *
+ * A Linux window manager reads `_NET_WM_ICON` from the window itself and uses the theme icon only
+ * once the panel has associated the window with a `.desktop` entry through `StartupWMClass`.
+ * Setting the icon explicitly keeps the title bar, Alt-Tab, and the panel from falling back to a
+ * generic glyph in that interval.
+ *
+ * @returns The icon file's absolute path; a missing file yields an empty image, which the caller
+ *   treats as no icon.
+ */
+function linuxWindowIcon(): NativeImage | undefined {
+  const iconPath = app.isPackaged
+    ? join(process.resourcesPath, 'icon.png')
+    : join(app.getAppPath(), 'resources', 'icons', '512x512.png')
+  const image = nativeImage.createFromPath(iconPath)
+  return image.isEmpty() ? undefined : image
+}
+
 function createWindow(preload: string, show = false, primary = false): BrowserWindow {
+  // The decision and the value are separate so that `icon` is a NativeImage known to exist:
+  // exactOptionalPropertyTypes rejects `NativeImage | undefined` here.
+  const windowIcon = process.platform === 'linux' ? linuxWindowIcon() : undefined
   const window = new BrowserWindow({
     width: 1280,
     height: 820,
     minWidth: 520,
     minHeight: 600,
     show,
+    ...(windowIcon === undefined ? {} : { icon: windowIcon }),
     ...(process.platform === 'win32' && primary ? {
       titleBarStyle: 'hidden' as const,
       titleBarOverlay: { height: WINDOWS_TITLEBAR_HEIGHT, color: chromeFallbackFill(),
@@ -959,7 +984,11 @@ async function main(): Promise<void> {
     updates.dispose()
   })
 
-  const applicationIconPath = development ? join(app.getAppPath(), 'resources', 'icon-windows.png')
+  // Linux reads the 512 px entry of the sized icon set for the window and about panel; other
+  // platforms keep icon-windows.png.
+  const developmentIcon = process.platform === 'linux' ? ['icons', '512x512.png'] : ['icon-windows.png']
+  const applicationIconPath = development
+    ? join(app.getAppPath(), 'resources', ...developmentIcon)
     : join(process.resourcesPath, 'icon.png')
   app.setAboutPanelOptions({
     applicationName: 'DeepSeek Harness',
@@ -1018,9 +1047,14 @@ async function main(): Promise<void> {
     tray?.relabel()
   }
   refreshApplicationMenu()
-  const trayIconPath = development ? join(app.getAppPath(), 'resources', 'tray-windows.ico') : join(process.resourcesPath, 'tray.ico')
-  if (process.platform === 'win32') {
-    // The tray is the way back to a hidden window; without it, relaunching the application still focuses it.
+  // Windows ships a multi-size ICO; Linux panels take a PNG that nativeImage picks
+  // up together with its @2x variant. macOS keeps the Dock and ships no menu bar icon.
+  const trayIconPath = development
+    ? join(app.getAppPath(), 'resources', process.platform === 'win32' ? 'tray-windows.ico' : 'tray.png')
+    : join(process.resourcesPath, process.platform === 'win32' ? 'tray.ico' : 'tray.png')
+  if (process.platform === 'win32' || process.platform === 'linux') {
+    // The tray is the way back to a hidden window; without it, relaunching the application
+    // still focuses it on Windows, but a Linux session has no other always-present handle.
     try {
       tray = new DesktopTray({ iconPath: trayIconPath, locale: currentDesktopLocale,
         open: () => { focusPrimaryWindow() }, quit: () => { app.quit() } })

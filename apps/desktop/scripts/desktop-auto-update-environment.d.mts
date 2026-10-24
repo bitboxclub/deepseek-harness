@@ -4,8 +4,14 @@ export const DESKTOP_AUTO_UPDATE_ENV: 'DSH_DESKTOP_AUTO_UPDATE_ENV'
 /** Supported Desktop update deployment. */
 export type DesktopAutoUpdateEnvironment = 'test' | 'production'
 
-/** Directory name of one supported Desktop release target. */
+/** Directory name of one target that publishes an auto-update feed. */
 export type DesktopAutoUpdateTarget = 'mac-arm64' | 'mac-x64' | 'win-x64'
+
+/**
+ * Directory name of one packaging target.
+ * Linux is a locally-built community target: it produces a .deb but publishes no update feed.
+ */
+export type DesktopPackageTarget = DesktopAutoUpdateTarget | 'linux-arm64' | 'linux-x64'
 
 /** Public updater URL and object prefixes for one release target. */
 export interface DesktopAutoUpdateConfig {
@@ -47,10 +53,10 @@ export function resolveDesktopAutoUpdateTarget(
 
 /**
  * Return the local completion record filename for one packaged target.
- * @param target - Supported release target.
+ * @param target - Supported packaging target, including Linux targets that publish no feed.
  * @returns Filename stored beside electron-builder artifacts.
  */
-export function desktopBuildRecordFilename(target: DesktopAutoUpdateTarget): string
+export function desktopBuildRecordFilename(target: DesktopPackageTarget): string
 
 /**
  * Return the electron-builder channel metadata filename for an application version.

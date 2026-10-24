@@ -66,7 +66,11 @@ export function createElectronBuilderConfig(
   if (skipNotarization && (unsigned || resolvedPlatform !== 'darwin')) throw new Error('Skipping notarization requires a signed macOS build')
   const packagesMacOS = targetPlatform === 'darwin' || (targetPlatform === undefined && hostPlatform === 'darwin')
   const packagesWindows = resolvedPlatform === 'win32'
-  const policy = packagesMacOS && unsigned ? undefined : resolveDesktopPolicyEnvironment(env)
+  const packagesLinux = resolvedPlatform === 'linux'
+  // A Linux target publishes no update feed and answers to no policy service, so it carries no
+  // mandatory-update policy. Omitting the field is what disables enforcement: the runtime resolves a
+  // missing policy to undefined.
+  const policy = packagesLinux || packagesMacOS && unsigned ? undefined : resolveDesktopPolicyEnvironment(env)
   if (resolvedPlatform === 'win32') installWindowsDirectoryInstaller()
   const macOSSigning = packagesMacOS && !unsigned ? resolveMacOSSigningEnvironment(env) : undefined
   if (packagesMacOS && !unsigned && !skipNotarization) resolveMacOSNotarizationEnvironment(env)
@@ -96,7 +100,8 @@ export function createElectronBuilderConfig(
   if (windowsSigner !== undefined) {
     installWindowsNsisBootstrapSigner({ sign: windowsSigner })
   }
-  const update = unsigned ? undefined : resolveDesktopAutoUpdateConfig(env, resolvedPlatform, resolvedArch)
+  // Linux is a locally-built community target: no auto-update feed is published for it.
+  const update = unsigned || packagesLinux ? undefined : resolveDesktopAutoUpdateConfig(env, resolvedPlatform, resolvedArch)
   if (preparedRuntime !== undefined) buildPaths.dsh = preparedRuntime
   // electron-builder merges extraMetadata into the packaged manifest, so a build version here reaches
   // the artifact names, the update feed, and the installed app.getVersion() the updater compares against.
@@ -156,9 +161,23 @@ export function createElectronBuilderConfig(
     asarUnpack: unpack,
     extraResources: [
       { from: buildPaths.runtime, to: 'runtime' },
-      { from: fileURLToPath(new URL('../resources/icon-windows.png', import.meta.url)), to: 'icon.png' },
-      // Windows tray bitmaps; macOS keeps the Dock and ships no menu bar icon.
+      // Window and about-panel icon. Linux reuses the 512 px entry of the sized set below, so one
+      // committed bitmap serves both the window icon and the launcher icon; Windows keeps its
+      // multi-size `icon-windows.png`.
+      {
+        from: fileURLToPath(new URL(
+          packagesLinux ? '../resources/icons/512x512.png' : '../resources/icon-windows.png',
+          import.meta.url,
+        )),
+        to: 'icon.png',
+      },
+      // Tray bitmaps. Windows takes the multi-size ICO; Linux panels take a PNG, and `nativeImage`
+      // picks the sibling `tray@2x.png` on HiDPI displays by itself. macOS keeps the Dock.
       ...(packagesWindows ? [{ from: fileURLToPath(new URL('../resources/tray-windows.ico', import.meta.url)), to: 'tray.ico' }] : []),
+      ...(packagesLinux ? [
+        { from: fileURLToPath(new URL('../resources/tray.png', import.meta.url)), to: 'tray.png' },
+        { from: fileURLToPath(new URL('../resources/tray@2x.png', import.meta.url)), to: 'tray@2x.png' },
+      ] : []),
     ],
     mac: {
       icon: fileURLToPath(new URL('../resources/icon-macos.png', import.meta.url)),
@@ -252,8 +271,52 @@ export function createElectronBuilderConfig(
       target: ['nsis'],
     },
     linux: {
-      category: 'Development',
-      target: ['AppImage'],
+      // A sized icon *directory*, not a single PNG. electron-builder installs each entry into
+      // /usr/share/icons/hicolor/<N>x<N>/apps/, and desktop environments only resolve an icon whose
+      // size appears in the installed index.theme `Directories` list. Each `<N>x<N>.png` here is
+      // rasterized per size from resources/icon.svg by `pnpm run render:app-icons`.
+      icon: fileURLToPath(new URL('../resources/icons', import.meta.url)),
+      // The command name, the installed PNG stem, and the .desktop file stem all derive from this.
+      // electron-builder's Linux default is the sanitized package name, which for
+      // '@deepseek-ai/dsh-desktop' is '@deepseek-aidsh-desktop' — unusable as a command.
+      executableName: 'deepseek-harness',
+      // StartupWMClass must equal Electron's app_id, which comes from package.json `desktopName`.
+      syncDesktopName: true,
+      // The Kylin and UOS desktops are Debian-based, so a deb is the portable delivery form.
+      target: ['deb'],
+      maintainer: 'DeepSeek Harness local build',
+      synopsis: 'DeepSeek Harness',
+      description: 'DeepSeek Harness desktop client (local Linux build).',
+      category: 'Development;Utility;',
+    },
+    deb: {
+      // afterInstall and afterRemove belong to DebOptions; the linux node's schema rejects them.
+      // Both scripts are electron-builder's default templates plus the /usr/bin/dsh alternative.
+      afterInstall: fileURLToPath(new URL('../installer/linux-after-install.sh', import.meta.url)),
+      afterRemove: fileURLToPath(new URL('../installer/linux-after-remove.sh', import.meta.url)),
+      // Self-contained delivery: the runtime ships in the package, so this declares only the system
+      // libraries Electron itself needs. These are the Debian-era package names Kylin V10 SP1
+      // provides; Ubuntu 24.04 renamed libasound2 to libasound2t64.
+      depends: [
+        'libgtk-3-0',
+        'libnotify4',
+        'libnss3',
+        'libxss1',
+        'libxtst6',
+        'xdg-utils',
+        'libatspi2.0-0',
+        // Supplying `depends` replaces electron-builder's default list, which includes libuuid1;
+        // dropping it would leave Chromium's uuid lookup unsatisfied on a minimal install.
+        'libuuid1',
+        'libsecret-1-0',
+        'libasound2',
+        'libgbm1',
+        'libdrm2',
+        'libxkbcommon0',
+        'libcups2',
+        'libpango-1.0-0',
+      ],
+      priority: 'optional',
     },
     nsis: {
       uninstallDisplayName: '${productName}',

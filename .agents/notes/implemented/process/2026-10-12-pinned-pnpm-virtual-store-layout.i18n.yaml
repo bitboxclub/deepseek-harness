@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for 2026-10-12-pinned-pnpm-virtual-store-layout.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/process/2026-10-12-pinned-pnpm-virtual-store-layout.md
+/agent-note-pinning-pnpm-s-virtual-store-inside-the-project:
+  en: 365f01fa9d643c0e
+  zh: 7c3698862cbfbebc
+/agent-note-pinning-pnpm-s-virtual-store-inside-the-project/problem:
+  en: bfe9d7005bf9c1fc
+  zh: 169805c11ca5edd9
+/agent-note-pinning-pnpm-s-virtual-store-inside-the-project/decision:
+  en: 88ff7cc0a378380a
+  zh: a6b6d291da42549d
+/agent-note-pinning-pnpm-s-virtual-store-inside-the-project/alternatives-considered:
+  en: 7de19faa08b15252
+  zh: 7c80612b39766a8d
+/agent-note-pinning-pnpm-s-virtual-store-inside-the-project/consequences:
+  en: 7dc1e19a3910252d
+  zh: 94ebceba1768f704

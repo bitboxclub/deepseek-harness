@@ -42,8 +42,25 @@ describe('desktop build commit', () => {
 
   it('reads the checkout this repository is in', () => {
     const packaged = readDesktopBuildCommit(join(import.meta.dirname, '..', '..', '..'))
+    // A released source archive carries no .git and yields undefined instead of throwing.
+    if (packaged === undefined) return
     expect(packaged.commit).toMatch(/^[0-9a-f]{40}$/u)
     expect(typeof packaged.dirty).toBe('boolean')
+  })
+
+  it('reports nothing instead of throwing outside a checkout', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'dsh-no-git-'))
+    directories.push(directory)
+    expect(readDesktopBuildCommit(directory)).toBeUndefined()
+  })
+
+  it('refuses a checkout whose git metadata is unusable', async () => {
+    // Only a missing .git means "not a checkout". A present but broken one is a misconfiguration,
+    // and packaging it silently would produce artifacts that claim to come from nowhere.
+    const directory = await mkdtemp(join(tmpdir(), 'dsh-broken-git-'))
+    directories.push(directory)
+    await writeFile(join(directory, '.git'), 'not a git directory\n')
+    expect(() => readDesktopBuildCommit(directory)).toThrow()
   })
 })
 

@@ -60,8 +60,9 @@ describe('installer preparation preserves application dependencies', () => {
       const aboutIcon = config.extraResources.find(resource => resource.to === 'icon.png')
       expect(aboutIcon).toBeDefined()
       expect(readFileSync(aboutIcon!.from)).toEqual(readFileSync(new URL('../resources/icon-windows.png', import.meta.url)))
-      // Only the Windows package carries the tray bitmaps; macOS keeps the Dock.
+      // Windows carries the multi-size ICO; Linux the PNG pair. Neither belongs to these targets.
       const trayIcon = config.extraResources.find(resource => resource.to === 'tray.ico')
+      expect(config.extraResources.filter(resource => resource.to === 'tray.png' || resource.to === 'tray@2x.png')).toEqual([])
       if (platform === 'win32') {
         expect(readFileSync(trayIcon!.from)).toEqual(readFileSync(new URL('../resources/tray-windows.ico', import.meta.url)))
       } else {
@@ -87,6 +88,64 @@ describe('installer preparation preserves application dependencies', () => {
       vi.unstubAllEnvs()
       vi.restoreAllMocks()
     }
+  })
+
+  it.each(['arm64', 'x64'] as const)('ships the sized icon set and the tray PNG pair the Linux desktop reads on %s', async (arch) => {
+    const { readdirSync } = await import('node:fs')
+    const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
+    const config = createElectronBuilderConfig({
+      DSH_DESKTOP_APP_ID: 'com.example.installer',
+      DSH_DESKTOP_TARGET_PLATFORM: 'linux',
+      DSH_DESKTOP_TARGET_ARCH: arch,
+    }, 'linux', arch)
+    // A single PNG lands in hicolor/<its own pixel size>/apps/, and a directory is the only way to
+    // install the standard size set the desktop looks up. electron-builder names each entry
+    // `<N>x<N>.png` and matches it by that pattern, so the directory must hold exactly that shape.
+    // readdirSync is unordered, hence the sort before comparing the size set.
+    const sizes = readdirSync(config.linux.icon).map(name => Number(name.slice(0, name.indexOf('x')))).sort((a, b) => a - b)
+    expect(sizes).toEqual([16, 22, 24, 32, 36, 48, 64, 72, 96, 128, 192, 256, 512])
+    for (const name of readdirSync(config.linux.icon)) {
+      const edge = Number(name.slice(0, name.indexOf('x')))
+      const png = readFileSync(new URL(`../resources/icons/${name}`, import.meta.url))
+      expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([edge, edge])
+    }
+    // The .desktop Icon= key, the installed PNG stem, and the command name all come from executableName.
+    expect(config.linux.executableName).toBe('deepseek-harness')
+    // Without syncDesktopName the .desktop file keeps the product name while Electron's app_id comes
+    // from desktopName, so the window never matches its launcher entry.
+    expect(config.linux.syncDesktopName).toBe(true)
+    expect(config.linux.target).toEqual(['deb'])
+    // The tray bitmaps are the second half of the same requirement: without them the panel item is
+    // absent and a hidden window has no way back. The PNG carries its own size, so read it back.
+    const tray = new Map<string, [number, number]>()
+    for (const resource of config.extraResources) {
+      if (resource.to !== 'tray.png' && resource.to !== 'tray@2x.png') continue
+      const png = readFileSync(resource.from)
+      tray.set(resource.to, [png.readUInt32BE(16), png.readUInt32BE(20)])
+    }
+    expect([...tray]).toEqual([['tray.png', [22, 22]], ['tray@2x.png', [44, 44]]])
+    // The window and about-panel icon reuses the 512 px entry of the same set, so one committed
+    // bitmap serves the window icon, the launcher icon, and the about panel.
+    const aboutIcon = config.extraResources.find(resource => resource.to === 'icon.png')
+    expect(readFileSync(aboutIcon!.from)).toEqual(readFileSync(new URL('../resources/icons/512x512.png', import.meta.url)))
+    // The deb knows nothing about PATH: without a maintainer script linking
+    // /usr/bin/dsh to the packaged runtime/cli/bin/dsh the CLI stays unreachable
+    // from a terminal. after-install must add it, after-remove must drop it again.
+    // Both go through update-alternatives like the application binary, so neither replaces nor
+    // deletes a /usr/bin/dsh another package owns. The keys live under DebOptions — the linux
+    // node's schema rejects them.
+    const installScript = readFileSync(config.deb.afterInstall, 'utf8')
+    const removeScript = readFileSync(config.deb.afterRemove, 'utf8')
+    expect(installScript).toContain("update-alternatives --install '/usr/bin/dsh' 'dsh' '/opt/${sanitizedProductName}/resources/runtime/cli/bin/dsh' 100")
+    expect(installScript).toContain("'/usr/bin/${executable}'")
+    expect(removeScript).toContain("update-alternatives --remove 'dsh' '/opt/${sanitizedProductName}/resources/runtime/cli/bin/dsh'")
+    // Supplying `depends` replaces electron-builder's default list, which carries libuuid1 for
+    // Chromium's uuid lookup; the replacement must not drop it.
+    expect(config.deb.depends).toContain('libuuid1')
+    // Linux is a local community target: no update feed and no mandatory-update policy field
+    // reach the packaged manifest, on either architecture.
+    expect(config.publish).toBeNull()
+    expect(config.extraMetadata).not.toHaveProperty('dshMandatoryUpdatePolicy')
   })
 
   it('names unsigned Windows artifacts so they cannot pass for release builds', async () => {

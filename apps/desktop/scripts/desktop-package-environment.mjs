@@ -47,6 +47,18 @@ export function localMacOSPackageEnvironment(environment = process.env) {
  * @returns {NodeJS.ProcessEnv} Isolated environment with file-owned release settings.
  */
 export function loadDesktopPackageEnvironment(platform, environment = process.env, appRoot = APP_ROOT, options = {}) {
+  // A Linux target is a local community build with no signing and no update feed, so it keeps the
+  // caller's environment and supplies only the minimum. DSH_DESKTOP_NPM_REGISTRY serves the
+  // `pnpm install --prod` prepare-dsh runs during packaging.
+  if (platform === 'linux') {
+    const base = Object.fromEntries(Object.entries(environment)
+      .filter(([name]) => !AMBIENT_RELEASE_SETTING.test(name)))
+    return {
+      ...base,
+      DSH_DESKTOP_APP_ID: base.DSH_DESKTOP_APP_ID ?? 'ai.deepseek.harness',
+      DSH_DESKTOP_NPM_REGISTRY: base.DSH_DESKTOP_NPM_REGISTRY ?? 'https://registry.npmmirror.com',
+    }
+  }
   const compression = environment.PACKAGE_WINDOWS_COMPRESSION_LEVEL
   if (compression !== undefined && compression !== '') {
     if (platform !== 'win32' || !['3', '7'].includes(compression)) {
@@ -156,6 +168,8 @@ export function validateDesktopPackageEnvironment(environment, target, options =
   resolveDesktopTargetBuildPaths(environment, target.platform, target.arch)
   resolveDesktopAppId(environment)
   resolveNpmRegistry(environment)
+  // A Linux community build has no policy service, no signing identity, and no update feed.
+  if (target.platform === 'linux') return
   if (target.platform !== 'darwin' || !options.unsigned) resolveDesktopPolicyEnvironment(environment)
   if (target.platform === 'darwin') resolveMacOSPackageSettings(environment)
   else resolveWindowsPackageSettings(environment)

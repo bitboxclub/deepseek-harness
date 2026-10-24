@@ -118,3 +118,16 @@ patchedDependencies:
   exceljs@4.4.0: patches/exceljs@4.4.0.patch
   lexical@0.49.0: patches/lexical@0.49.0.patch
   node-pty@1.2.0-beta.15: patches/node-pty@1.2.0-beta.15.patch
+
+# Pin the virtual store layout. pnpm 11 derives enableGlobalVirtualStore from CI (false when CI is
+# set, unset otherwise), and this build invokes pnpm both ways: `pnpm install` runs with CI=true so
+# the root postinstall (scripts/install-lefthook.mjs, which needs git >= 2.26) returns early, while
+# the packaging steps run without it. pnpm then reads the recorded workspace state as stale and
+# tries to rebuild node_modules, which fails without a TTY.
+#
+# The value must be false: this is a project install and .pnpm belongs inside the project. true
+# moves it into the global store's links/, where electron-builder's node-module collector no longer
+# finds electron-updater's transitive dependencies and the packaged app.asar omits packages such
+# as fs-extra. See
+# .agents/notes/implemented/process/2026-10-12-pinned-pnpm-virtual-store-layout.md.
+enableGlobalVirtualStore: false
