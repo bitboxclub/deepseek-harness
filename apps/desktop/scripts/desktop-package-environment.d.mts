@@ -13,6 +13,7 @@ export function localMacOSPackageEnvironment(environment?: NodeJS.ProcessEnv): N
  * PACKAGE_MACOS_ZIP_COMPRESSION_LEVEL overrides the Mac file setting with 3 or 7; an empty value is invalid.
  * Any defined Mac ZIP override rejects Windows, including an empty value; nonempty Windows overrides reject macOS.
  * PACKAGE_WINDOWS_COMPRESSION_LEVEL selects 3 or 7 for Windows workflow builds; blank retains the file setting.
+ * Linux reads no dotenv file and uses built-in community defaults.
  * @param platform Target platform.
  * @param environment Parent environment, retained only for unrelated build tools.
  * @param appRoot Desktop application directory; relative credential paths resolve here.
@@ -20,7 +21,7 @@ export function localMacOSPackageEnvironment(environment?: NodeJS.ProcessEnv): N
  * @returns Isolated environment with file-owned release settings.
  */
 export function loadDesktopPackageEnvironment(
-  platform: 'win32' | 'darwin',
+  platform: 'win32' | 'darwin' | 'linux',
   environment?: NodeJS.ProcessEnv,
   appRoot?: string,
   options?: { unsigned?: boolean, prepareOnly?: boolean },
@@ -35,6 +36,6 @@ export function loadDesktopPackageEnvironment(
  */
 export function validateDesktopPackageEnvironment(
   environment: NodeJS.ProcessEnv,
-  target: { platform: 'win32' | 'darwin', arch: string },
+  target: { platform: 'win32' | 'darwin' | 'linux', arch: string },
   options?: { unsigned?: boolean, prepareOnly?: boolean, skipNotarization?: boolean },
 ): void

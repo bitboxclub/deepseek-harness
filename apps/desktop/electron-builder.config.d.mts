@@ -19,8 +19,25 @@ export interface DesktopElectronBuilderConfig {
   readonly extraResources: readonly [
     { readonly from: string, readonly to: 'runtime' },
     { readonly from: string, readonly to: 'icon.png' },
-    ...{ readonly from: string, readonly to: 'tray.ico' }[],
+    // Windows takes the multi-size ICO; Linux the PNG pair nativeImage loads with its @2x variant.
+    ...{ readonly from: string, readonly to: 'tray.ico' | 'tray.png' | 'tray@2x.png' }[],
   ]
+  readonly linux: {
+    /** Sized icon directory; electron-builder installs each entry into hicolor/<size>x<size>/apps. */
+    readonly icon: string
+    /** Command name, the installed PNG stem, and the .desktop file stem all derive from this. */
+    readonly executableName: string
+    /** Keeps the .desktop file name, StartupWMClass, and Electron's app_id identical. */
+    readonly syncDesktopName: boolean
+    readonly target: readonly ['deb']
+  }
+  readonly deb: {
+    /** Macro-rendered maintainer scripts; base is EB's default, plus the /usr/bin/dsh alternative. */
+    readonly afterInstall: string
+    readonly afterRemove: string
+    /** Complete dependency list: supplying it replaces electron-builder's own default list. */
+    readonly depends: readonly string[]
+  }
   readonly mac: {
     readonly extendInfo: {
       readonly CFBundleLocalizations: readonly string[]

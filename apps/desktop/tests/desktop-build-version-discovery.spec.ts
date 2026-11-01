@@ -81,6 +81,29 @@ describe('desktop build version discovery', () => {
       .resolves.toBe(`${PRERELEASE}.${DATE}.5`)
   })
 
+  it('reads Linux deb artifact names on both architectures', async () => {
+    const artifactsRoot = await artifactsWith([
+      `deepseek-harness-${PRERELEASE}.${DATE}.3-linux-x64.deb`,
+      `deepseek-harness-${PRERELEASE}.${DATE}.7-linux-arm64.deb`,
+      `deepseek-harness-${PRERELEASE}-linux-x64.deb`,
+      'unrelated.deb',
+    ])
+    await expect(suggestDesktopBuildVersion({ productVersion: PRERELEASE, target: 'linux-x64', environment: {}, date: DATE, artifactsRoot }))
+      .resolves.toBe(`${PRERELEASE}.${DATE}.8`)
+    await expect(suggestDesktopBuildVersion({ productVersion: PRERELEASE, target: 'linux-arm64', environment: {}, date: DATE, artifactsRoot }))
+      .resolves.toBe(`${PRERELEASE}.${DATE}.8`)
+  })
+
+  it('numbers Linux community builds from local artifacts only', async () => {
+    // A Linux target publishes no feed, so bucket credentials in the environment must not drag a
+    // mac/win listing into the numbering; the local deb scan owns the sequence.
+    const artifactsRoot = await artifactsWith([`deepseek-harness-${PRERELEASE}.${DATE}.2-linux-x64.deb`])
+    await expect(suggestDesktopBuildVersion({
+      productVersion: PRERELEASE, target: 'linux-x64', date: DATE, artifactsRoot,
+      environment: { DSH_DESKTOP_AUTO_UPDATE_ENV: 'production' },
+    })).resolves.toBe(`${PRERELEASE}.${DATE}.3`)
+  })
+
   it('counts unsigned Windows artifacts written under their own suffix', async () => {
     const artifactsRoot = await artifactsWith([
       `deepseek-harness-${PRERELEASE}.${DATE}.2-win-x64-unsigned.exe`,

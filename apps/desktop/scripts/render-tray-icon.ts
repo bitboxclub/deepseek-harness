@@ -1,11 +1,16 @@
 /**
- * Render the Windows tray icon with an enlarged whale from `resources/icon-windows.svg`.
+ * Render the tray icon from `resources/icon-windows.svg`.
  *
- * The tray shows the icon at 16 logical pixels, so Windows picks one of the
- * bundled bitmaps by display scale. Each size is rasterized from the vector
- * source separately instead of downscaling one large bitmap, which keeps edges
- * crisp at every scale. The committed `resources/tray-windows.ico` is the output;
- * rerun `pnpm run render:tray-icon` in `apps/desktop` after changing the vector source.
+ * Windows: the tray shows the icon at 16 logical pixels, so Windows picks one of the
+ * bundled bitmaps by display scale. Each size is rasterized from the vector source
+ * separately instead of downscaling one large bitmap, which keeps edges crisp at every
+ * scale. The committed `resources/tray-windows.ico` is the output.
+ *
+ * Linux: panels read a single PNG and scale it themselves, so the icon ships as
+ * `tray.png` plus the `@2x` variant that `nativeImage` picks up on HiDPI displays.
+ * `tray.png` / `tray@2x.png` are the outputs.
+ *
+ * Rerun `pnpm run render:tray-icon` in `apps/desktop` after changing the vector source.
  */
 
 import { readFile, writeFile } from 'node:fs/promises'
@@ -16,10 +21,15 @@ import sharp from 'sharp'
 /** Bitmap edge lengths bundled in the tray icon: 16 px at 100 % through 400 % display scale. */
 export const TRAY_ICON_SIZES = [16, 20, 24, 32, 40, 48, 64] as const
 
-/** Vector source and committed output of the tray icon. */
+/** Logical edge of the Linux tray bitmap; panels draw the item at this size. */
+export const LINUX_TRAY_ICON_EDGE = 22
+
+/** Vector source and committed outputs of the tray icon. */
 export const TRAY_ICON_PATHS = {
   source: fileURLToPath(new URL('../resources/icon-windows.svg', import.meta.url)),
   output: fileURLToPath(new URL('../resources/tray-windows.ico', import.meta.url)),
+  linuxOutput: fileURLToPath(new URL('../resources/tray.png', import.meta.url)),
+  linuxOutput2x: fileURLToPath(new URL('../resources/tray@2x.png', import.meta.url)),
 } as const
 
 /** Coordinate space of the vector source; sharp's SVG density is scaled against it. */
@@ -114,10 +124,38 @@ function pngDimensions(png: Buffer): { width: number; height: number } {
   return { width: png.readUInt32BE(16), height: png.readUInt32BE(20) }
 }
 
+/**
+ * Rasterize one standalone PNG for the Linux tray.
+ *
+ * Linux panels draw the item themselves and scale whatever they are given, so unlike
+ * the Windows ICO there is no size table to fill: one logical bitmap plus its `@2x`
+ * variant is what `nativeImage` expects. The glyph is enlarged exactly like the
+ * Windows entries so both platforms show the same artwork.
+ *
+ * @param svg - SVG document with a 1024-unit square viewBox and a `tray-glyph` group.
+ * @param edge - Bitmap edge in pixels.
+ * @returns the PNG stream.
+ */
+export async function renderTrayIconPng(svg: Buffer, edge: number): Promise<Buffer> {
+  const source = svg.toString('utf8')
+  const glyph = '<g id="tray-glyph"'
+  if (!source.includes(glyph)) throw new Error('tray icon: SVG requires a tray-glyph group')
+  const tray = Buffer.from(source.replace(glyph, `${glyph} transform="translate(552 544) scale(1.2) translate(-552 -544)"`))
+  const png = await sharp(tray, { density: SOURCE_DENSITY * edge / SOURCE_EDGE }).resize(edge, edge).png().toBuffer()
+  const { width, height } = pngDimensions(png)
+  if (width !== edge || height !== edge) throw new Error(`tray icon: rendered ${String(width)}x${String(height)}, expected ${String(edge)}`)
+  return png
+}
+
 async function main(): Promise<void> {
-  const entries = await renderTrayIconEntries(await readFile(TRAY_ICON_PATHS.source))
+  const svg = await readFile(TRAY_ICON_PATHS.source)
+  const entries = await renderTrayIconEntries(svg)
   await writeFile(TRAY_ICON_PATHS.output, packIco(entries))
   console.info(`tray icon: wrote ${TRAY_ICON_PATHS.output} with ${entries.map(entry => String(entry.size)).join(', ')} px bitmaps`)
+  // Linux reads these two through nativeImage, which selects `@2x` on HiDPI displays.
+  await writeFile(TRAY_ICON_PATHS.linuxOutput, await renderTrayIconPng(svg, LINUX_TRAY_ICON_EDGE))
+  await writeFile(TRAY_ICON_PATHS.linuxOutput2x, await renderTrayIconPng(svg, LINUX_TRAY_ICON_EDGE * 2))
+  console.info(`tray icon: wrote ${TRAY_ICON_PATHS.linuxOutput} and ${TRAY_ICON_PATHS.linuxOutput2x} at ${String(LINUX_TRAY_ICON_EDGE)} px`)
 }
 
 if (process.argv[1] !== undefined && import.meta.filename === resolve(process.argv[1])) await main()

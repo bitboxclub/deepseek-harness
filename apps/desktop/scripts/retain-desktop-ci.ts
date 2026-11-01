@@ -34,6 +34,10 @@ export function desktopReleasesRoot(env: NodeJS.ProcessEnv): string {
  */
 export async function retainDesktopCi(env: NodeJS.ProcessEnv, appRoot = resolve(import.meta.dirname, '..')): Promise<string> {
   const target = resolveDesktopBuildTarget(env)
+  // Retention qualifies release artifacts; a Linux community build publishes no channel to retain.
+  if (target === 'linux-arm64' || target === 'linux-x64') {
+    throw new Error('desktop retention: Linux targets publish no release channel')
+  }
   const windows = target === 'win-x64'
   const platform = windows ? 'win32' : 'darwin'
   const settings = loadDesktopPackageEnvironment(platform, env, appRoot, { unsigned: true })

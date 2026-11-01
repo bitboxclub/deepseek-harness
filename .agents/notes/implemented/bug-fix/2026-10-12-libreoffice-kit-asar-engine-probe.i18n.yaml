@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for 2026-10-12-libreoffice-kit-asar-engine-probe.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-10-12-libreoffice-kit-asar-engine-probe.md
+/agent-note-relaxing-the-libreofficekit-engine-probe-under-asar:
+  en: f04613aa639b1a94
+  zh: b0fdb4f37747d96c
+/agent-note-relaxing-the-libreofficekit-engine-probe-under-asar/problem:
+  en: 6b1531002b5f19dc
+  zh: e0371bab836ca361
+/agent-note-relaxing-the-libreofficekit-engine-probe-under-asar/decision:
+  en: ac96fad01931f64b
+  zh: 3ea97bbe75831675
+/agent-note-relaxing-the-libreofficekit-engine-probe-under-asar/alternatives-considered:
+  en: b7c167499da5c5d6
+  zh: 013300b3ae9ce1ee
+/agent-note-relaxing-the-libreofficekit-engine-probe-under-asar/consequences:
+  en: 9fa3fc475f6863e8
+  zh: 54f8240bb5f8043f

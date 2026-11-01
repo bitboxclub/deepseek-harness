@@ -157,7 +157,7 @@ Architecture-specific builds report actual component-level compressed and instal
 | Desktop profile | One Electron-owned reserved profile for external plugins and shared package links |
 | Plugin management | Shared Web Plugins page and Host service with launcher-supplied bundled pnpm |
 | Activation | Shared manager applies configuration through HMR when enabled; otherwise changes require restart |
-| Initial platforms | macOS arm64/x64 and Windows x64; Linux has no supported release target |
+| Initial platforms | macOS arm64/x64 and Windows x64 as release targets, plus Linux arm64/x64 as a local community packaging target ([decision](2026-10-12-linux-community-desktop-target.md)) |
 | Update behavior | Background check, explicit confirmation before differential download and restart, startup dsh reconciliation |
 
 ## Risks
