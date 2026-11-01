@@ -425,6 +425,21 @@ function applicationMenuItems(): MenuItemConstructorOptions[] {
   return harness.menu.mock.lastCall![0]
 }
 
+/**
+ * Submenu of the most recently built application menu.
+ *
+ * The tray builds its own context menu through the same API, so the last call is not necessarily
+ * the application menu on a platform that keeps a tray item.
+ * @returns Items of the newest template whose first entry carries a submenu.
+ */
+function latestApplicationSubmenu(): MenuItemConstructorOptions[] {
+  for (const call of [...harness.menu.mock.calls].reverse()) {
+    const first = Array.isArray(call[0]) ? call[0][0] : undefined
+    if (Array.isArray(first?.submenu)) return first.submenu
+  }
+  throw new Error('no application menu was built')
+}
+
 beforeEach(() => {
   vi.resetModules()
   vi.clearAllMocks()
@@ -591,8 +606,7 @@ describe('desktop main startup', () => {
     harness.ipcOn.mock.calls.find(([channel]) => channel === DESKTOP_IPC.localeChanged)![1](
       { sender, senderFrame: sender.mainFrame }, nextLocale,
     )
-    const refreshed = platform === 'win32' ? applicationMenuItems()
-      : harness.menu.mock.lastCall![0][0]!.submenu as MenuItemConstructorOptions[]
+    const refreshed = platform === 'win32' ? applicationMenuItems() : latestApplicationSubmenu()
     expect(refreshed.filter(item => item.role === 'toggleDevTools' && item.visible !== false)).toEqual([
       { role: 'toggleDevTools', label: nextLocale === 'en' ? en.toggleDevToolsMenu : zh.toggleDevToolsMenu },
     ])
